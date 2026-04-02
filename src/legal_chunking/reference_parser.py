@@ -6,11 +6,8 @@ import re
 from dataclasses import dataclass
 
 from legal_chunking.manifest import ReferenceDocFamily
-from legal_chunking.numbering_markers import (
-    build_numbering_marker_pattern,
-    get_numbering_family_aliases,
-)
-from legal_chunking.profiles import resolve_doc_family, resolve_profile
+from legal_chunking.numbering_markers import get_numbering_family_aliases
+from legal_chunking.profiles import resolve_doc_family_near, resolve_profile
 from legal_chunking.references import normalize_article_number, normalize_reference_text
 
 
@@ -55,9 +52,6 @@ class ParsedReference:
 
 
 _ARTICLE_TOKEN = r"(?:[A-Za-z]\.?\s*)?\d+[A-Za-z0-9()./-]*"
-_FAMILY_CONTEXT_CHARS = 96
-
-
 @dataclass(slots=True, frozen=True)
 class _PatternSpec:
     scheme: str
@@ -71,45 +65,94 @@ def _build_asset_marker_patterns(
     family: str,
     scheme: str,
 ) -> list[_PatternSpec]:
-    aliases = [
+    compact_aliases, spaced_aliases = _split_marker_alias_groups(profile=profile, family=family)
+    if not compact_aliases and not spaced_aliases:
+        return []
+    patterns: list[_PatternSpec] = []
+    if compact_aliases:
+        patterns.append(
+            _PatternSpec(
+                scheme=scheme,
+                pattern=re.compile(
+                    rf"(?<!\w)(?:{'|'.join(compact_aliases)})\s*(?P<article>{_ARTICLE_TOKEN})",
+                    re.IGNORECASE,
+                ),
+            )
+        )
+    if spaced_aliases:
+        patterns.append(
+            _PatternSpec(
+                scheme=scheme,
+                pattern=re.compile(
+                    rf"(?<!\w)(?:{'|'.join(spaced_aliases)})\s+(?P<article>{_ARTICLE_TOKEN})",
+                    re.IGNORECASE,
+                ),
+            )
+        )
+    return patterns
+
+
+def _ru_scoped_patterns(profile: str) -> list[re.Pattern[str]]:
+    article_marker = _build_marker_prefix_pattern(profile=profile, family="article_like")
+    point_marker = _build_marker_number_pattern(
+        profile=profile,
+        family="point_like",
+        number_pattern=r"\d+(?:\.\d+)*",
+    )
+    part_marker = _build_marker_number_pattern(
+        profile=profile,
+        family="part_like",
+        number_pattern=r"\d+",
+    )
+    return [
+        re.compile(
+            rf"(?:(?P<part>{part_marker})\s*)?"
+            rf"(?:(?P<paragraph>{point_marker})\s*)?"
+            rf"{article_marker}(?P<article>\d+(?:\.\d+)*)",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            rf"(?:(?P<paragraph>{point_marker})\s*)?"
+            rf"(?:(?P<part>{part_marker})\s*)?"
+            rf"{article_marker}(?P<article>\d+(?:\.\d+)*)",
+            re.IGNORECASE,
+        ),
+    ]
+
+
+def _split_marker_alias_groups(*, profile: str, family: str) -> tuple[list[str], list[str]]:
+    raw_aliases = [
         alias
         for alias in get_numbering_family_aliases(profile=profile, family=family)
         if any(char.isalpha() for char in alias)
     ]
-    if not aliases:
-        return []
-    marker = "(?:" + "|".join(
-        sorted((re.escape(alias) for alias in aliases), key=len, reverse=True)
-    ) + ")"
-    return [
-        _PatternSpec(
-            scheme=scheme,
-            pattern=re.compile(
-                rf"(?<!\w)(?:{marker})\s+(?P<article>{_ARTICLE_TOKEN})",
-                re.IGNORECASE,
-            ),
-        )
-    ]
+    compact_aliases = sorted(
+        (re.escape(alias) for alias in raw_aliases if not alias[-1].isalnum()),
+        key=len,
+        reverse=True,
+    )
+    spaced_aliases = sorted(
+        (re.escape(alias) for alias in raw_aliases if alias[-1].isalnum()),
+        key=len,
+        reverse=True,
+    )
+    return compact_aliases, spaced_aliases
 
 
-def _ru_scoped_patterns(profile: str) -> list[re.Pattern[str]]:
-    article_marker = build_numbering_marker_pattern(profile=profile, family="article_like")
-    point_marker = build_numbering_marker_pattern(profile=profile, family="point_like")
-    part_marker = build_numbering_marker_pattern(profile=profile, family="part_like")
-    return [
-        re.compile(
-            rf"(?:(?P<part>{part_marker}\s*\d+)\s*)?"
-            rf"(?:(?P<paragraph>{point_marker}\s*\d+(?:\.\d+)*)\s*)?"
-            rf"(?:{article_marker})\s+(?P<article>\d+(?:\.\d+)*)",
-            re.IGNORECASE,
-        ),
-        re.compile(
-            rf"(?:(?P<paragraph>{point_marker}\s*\d+(?:\.\d+)*)\s*)?"
-            rf"(?:(?P<part>{part_marker}\s*\d+)\s*)?"
-            rf"(?:{article_marker})\s+(?P<article>\d+(?:\.\d+)*)",
-            re.IGNORECASE,
-        ),
-    ]
+def _build_marker_prefix_pattern(*, profile: str, family: str) -> str:
+    compact_aliases, spaced_aliases = _split_marker_alias_groups(profile=profile, family=family)
+    variants: list[str] = []
+    if spaced_aliases:
+        variants.append(rf"(?:{'|'.join(spaced_aliases)})\s+")
+    if compact_aliases:
+        variants.append(rf"(?:{'|'.join(compact_aliases)})\s*")
+    if not variants:
+        return r"(?!x)x"
+    return "(?:" + "|".join(variants) + ")"
+
+
+def _build_marker_number_pattern(*, profile: str, family: str, number_pattern: str) -> str:
+    return _build_marker_prefix_pattern(profile=profile, family=family) + number_pattern
 
 
 _GERMAN_SECTION_PATTERNS = [
@@ -252,10 +295,12 @@ def _resolve_match_doc_family(
     if explicit_doc_family:
         return explicit_doc_family
 
-    context_start = max(0, match.start() - _FAMILY_CONTEXT_CHARS)
-    context_end = min(len(text), match.end() + _FAMILY_CONTEXT_CHARS)
-    context = text[context_start:context_end]
-    family = resolve_doc_family(profile, context)
+    family = resolve_doc_family_near(
+        profile,
+        text,
+        anchor_start=match.start(),
+        anchor_end=match.end(),
+    )
     if family is not None:
         return family.id
 
@@ -281,9 +326,7 @@ def extract_references(
     doc_family: str | None = None,
 ) -> list[ParsedReference]:
     resolved_profile = resolve_profile(profile)
-    inherited_family = doc_family or (
-        resolve_doc_family(resolved_profile.code, text or "") or None
-    )
+    inherited_family = doc_family or None
     inherited_family_id = (
         inherited_family.id
         if isinstance(inherited_family, ReferenceDocFamily)
