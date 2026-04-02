@@ -11,11 +11,13 @@ LEVEL_ORDER = ["document_root", "part", "chapter", "section", "article", "clause
 
 
 def _level_index(kind: str) -> int:
-    return LEVEL_ORDER.index(kind) if kind in LEVEL_ORDER else len(LEVEL_ORDER)
+    if kind == "other":
+        return 1
+    return LEVEL_ORDER.index(kind) if kind in LEVEL_ORDER else 1
 
 
-def _make_section_id(source_name: str, path: list[str]) -> str:
-    digest = hashlib.sha256(f"{source_name}::{'||'.join(path)}".encode()).hexdigest()
+def _make_section_id(source_name: str, path: list[str], occurrence: int) -> str:
+    digest = hashlib.sha256(f"{source_name}::{'||'.join(path)}::{occurrence}".encode()).hexdigest()
     return f"sec-{digest[:12]}"
 
 
@@ -43,6 +45,7 @@ def assemble_sections(
     sections: list[Section] = []
     stack: list[Section] = []
     text_parts_by_id: dict[str, list[str]] = {}
+    path_occurrences: dict[tuple[str, ...], int] = {}
     search_offset = 0
     order = 0
 
@@ -53,9 +56,12 @@ def assemble_sections(
             stack.pop()
 
         path = [section.title for section in stack] + [match.label]
+        path_key = tuple(path)
+        occurrence = path_occurrences.get(path_key, 0) + 1
+        path_occurrences[path_key] = occurrence
         parent_section_id = stack[-1].section_id if stack else None
         section = Section(
-            section_id=_make_section_id(source_name, path),
+            section_id=_make_section_id(source_name, path, occurrence),
             kind=match.kind,
             title=match.label,
             order=order,
@@ -74,7 +80,7 @@ def assemble_sections(
         return section
 
     root = Section(
-        section_id=_make_section_id(source_name, ["Document"]),
+        section_id=_make_section_id(source_name, ["Document"], 1),
         kind="document_root",
         title="Document",
         order=order,

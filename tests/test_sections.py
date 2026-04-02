@@ -51,3 +51,39 @@ def test_chunk_text_materializes_sections_and_section_chunks() -> None:
     ]
     assert document.chunks[0].prev_chunk_id is None
     assert document.chunks[-1].next_chunk_id is None
+
+
+def test_repeated_heading_paths_get_distinct_section_ids() -> None:
+    text = "\n".join(
+        [
+            "Article 1. Same",
+            "First body.",
+            "Article 1. Same",
+            "Second body.",
+        ]
+    )
+
+    sections = assemble_sections(text, profile="generic")
+
+    assert len(sections) == 3
+    assert sections[1].section_id != sections[2].section_id
+    assert sections[1].text.endswith("First body.")
+    assert sections[2].text.endswith("Second body.")
+
+
+def test_noncanonical_other_heading_is_promoted_to_root_level() -> None:
+    text = "\n".join(
+        [
+            "Article 1. Main section",
+            "Body of main section.",
+            "Schedule No. 1 Definitions",
+            "Body of schedule.",
+        ]
+    )
+
+    sections = assemble_sections(text, profile="generic")
+
+    assert len(sections) == 3
+    assert sections[2].kind == "other"
+    assert sections[2].parent_section_id == sections[0].section_id
+    assert sections[2].title == "Schedule 1. Definitions"
