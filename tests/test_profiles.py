@@ -1,3 +1,7 @@
+from pathlib import Path
+
+import fitz
+
 from legal_chunking import chunk_pdf, chunk_text
 from legal_chunking.manifest import load_manifest
 from legal_chunking.numbering_markers import (
@@ -33,8 +37,16 @@ def test_chunk_text_uses_resolved_profile_metadata() -> None:
     assert document.language == "en"
 
 
-def test_chunk_pdf_uses_resolved_profile_metadata() -> None:
-    document = chunk_pdf("agreement.pdf", profile="european union")
+def test_chunk_pdf_uses_resolved_profile_metadata(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "agreement.pdf"
+    document_writer = fitz.open()
+    try:
+        document_writer.new_page()
+        document_writer.save(pdf_path)
+    finally:
+        document_writer.close()
+
+    document = chunk_pdf(pdf_path, profile="european union")
 
     assert document.profile == "eu"
     assert document.language == "en"

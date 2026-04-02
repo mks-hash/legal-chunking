@@ -6,6 +6,7 @@ from pathlib import Path
 
 from legal_chunking.chunk import build_chunks
 from legal_chunking.detect.sections import assemble_sections
+from legal_chunking.extract.pdf import extract_pdf_text
 from legal_chunking.models import Document
 from legal_chunking.normalize import normalize_extracted_text
 from legal_chunking.profiles import resolve_profile, select_chunk_fallback, select_chunk_policy
@@ -47,15 +48,10 @@ def chunk_text(
 
 
 def chunk_pdf(path: str | Path, profile: str = "generic") -> Document:
-    """Read a PDF path placeholder until PDF extraction is implemented."""
+    """Extract normalized PDF text and pass it through the chunking pipeline."""
     source = Path(path)
-    resolved_profile = resolve_profile(profile)
-    chunk_policy = select_chunk_policy(resolved_profile.chunking_policy)
-    return Document(
+    return chunk_text(
+        extract_pdf_text(source, profile=profile),
+        profile=profile,
         source_name=source.name,
-        profile=resolved_profile.code,
-        language=resolved_profile.language,
-        text="",
-        chunk_policy=chunk_policy,
-        chunks=[],
     )
