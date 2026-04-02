@@ -8,6 +8,6 @@
     "subpoint_like": ["subclause", "subclauses", "subsection", "subsections"],
     "paragraph_like": ["paragraph", "paragraphs", "para.", "para", "subparagraph", "subparagraphs"],
     "part_like": ["part", "parts", "title", "titles"],
-    "annex_like": ["appendix", "appendices", "schedule", "schedules", "exhibit", "exhibits"]
+    "annex_like": ["annex", "annexes", "appendix", "appendices", "schedule", "schedules", "exhibit", "exhibits"]
   }
 }

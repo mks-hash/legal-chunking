@@ -187,6 +187,7 @@ def test_reference_context_resolver_uses_vocabulary_families() -> None:
 
     assert resolver.detect_context("Статья 229⁵ ГПК РФ").family == "article_like"
     assert resolver.detect_context("часть 2 статьи 2881 АПК РФ").family == "article_like"
+    assert resolver.detect_context("разд 3 ГК РФ").family == "section_like"
     assert resolver.detect_context("Условие договора¹").family == "unknown"
 
 

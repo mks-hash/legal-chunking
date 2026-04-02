@@ -68,6 +68,13 @@ def test_numbering_family_aliases_are_asset_backed() -> None:
     assert "ст." in aliases
 
 
+def test_numbering_family_aliases_support_short_ru_section_marker() -> None:
+    aliases = get_numbering_family_aliases(profile="ru", family="section_like")
+
+    assert "разд" in aliases
+    assert "разд." in aliases
+
+
 def test_numbering_aliases_deduplicate_across_families() -> None:
     aliases = get_numbering_aliases(
         profile="us",
@@ -76,6 +83,13 @@ def test_numbering_aliases_deduplicate_across_families() -> None:
 
     assert aliases.count("section") == 1
     assert "§" in aliases
+
+
+def test_numbering_aliases_include_generic_annex_and_exhibit_variants() -> None:
+    aliases = get_numbering_aliases(profile="generic", families=["annex_like"])
+
+    assert "annex" in aliases
+    assert "exhibit" in aliases
 
 
 def test_build_numbering_marker_pattern_prefers_longer_aliases_first() -> None:
