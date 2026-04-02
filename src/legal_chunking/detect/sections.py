@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import hashlib
 
+from legal_chunking.detect.guidance import (
+    extract_guidance_point_metadata,
+    normalize_guidance_text,
+    split_guidance_blocks,
+)
 from legal_chunking.detect.headings import HeadingMatch, detect_heading
 from legal_chunking.models import Section
 
@@ -45,6 +50,11 @@ def assemble_sections(
     if not normalized:
         return []
 
+    if chunk_policy == "guidance":
+        guidance_sections = _assemble_guidance_sections(normalized, source_name=source_name)
+        if guidance_sections is not None:
+            return guidance_sections
+
     raw_lines = normalized.splitlines(keepends=True)
     if not raw_lines:
         return []
@@ -72,6 +82,7 @@ def assemble_sections(
             kind=match.kind,
             title=match.label,
             order=order,
+            section_type=match.kind,
             parent_section_id=parent_section_id,
             path=path,
             article_number=match.article_number,
@@ -91,6 +102,7 @@ def assemble_sections(
         kind="document_root",
         title="Document",
         order=order,
+        section_type="document_root",
         parent_section_id=None,
         path=["Document"],
         start_offset=0,
@@ -134,3 +146,94 @@ def assemble_sections(
     result: list[Section] = [root]
     result.extend(section for section in sections[1:] if section.text)
     return result
+
+
+def _assemble_guidance_sections(text: str, *, source_name: str) -> list[Section] | None:
+    normalized = normalize_guidance_text(text)
+    if not normalized:
+        return []
+
+    blocks = split_guidance_blocks(
+        normalized,
+        allow_noninitial_sequence=True,
+        min_points=1,
+    )
+    if not any(block.method == "guidance_point" for block in blocks):
+        return None
+
+    sections: list[Section] = []
+    path_occurrences: dict[tuple[str, ...], int] = {}
+    search_offset = 0
+    order = 0
+
+    root = Section(
+        section_id=_make_section_id(source_name, ["Document"], 1),
+        kind="document_root",
+        title="Document",
+        order=order,
+        section_type="document_root",
+        parent_section_id=None,
+        path=["Document"],
+        start_offset=0,
+        end_offset=len(normalized),
+        text="",
+    )
+    sections.append(root)
+    order += 1
+
+    for block in blocks:
+        start_offset = _find_block_offset(normalized, block.text, search_offset)
+        end_offset = start_offset + len(block.text)
+        search_offset = end_offset
+
+        if block.method == "guidance_preamble":
+            root.text = block.text
+            root.end_offset = end_offset
+            continue
+
+        if block.method != "guidance_point":
+            if root.text:
+                root.text = f"{root.text}\n\n{block.text}".strip()
+            else:
+                root.text = block.text
+            root.end_offset = end_offset
+            continue
+
+        label = f"Point {block.point_number}" if block.point_number else "Point"
+        path = ["Document", label]
+        path_key = tuple(path)
+        occurrence = path_occurrences.get(path_key, 0) + 1
+        path_occurrences[path_key] = occurrence
+        metadata = extract_guidance_point_metadata(block.text, point_number=block.point_number)
+        sections.append(
+            Section(
+                section_id=_make_section_id(source_name, path, occurrence),
+                kind="clause",
+                title=label,
+                order=order,
+                section_type="review_point",
+                parent_section_id=root.section_id,
+                path=path,
+                point_number=metadata.point_number,
+                legal_unit_type="guidance_point",
+                legal_unit_number=metadata.point_number,
+                source_case_reference=metadata.source_case_reference,
+                source_case_number=metadata.source_case_number,
+                source_case_date=metadata.source_case_date,
+                source_case_court=metadata.source_case_court,
+                start_offset=start_offset,
+                end_offset=end_offset,
+                text=block.text,
+            )
+        )
+        order += 1
+
+    return sections
+
+
+def _find_block_offset(text: str, block: str, start: int) -> int:
+    index = text.find(block, start)
+    if index >= 0:
+        return index
+    fallback = text.find(block)
+    return fallback if fallback >= 0 else start

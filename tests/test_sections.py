@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from legal_chunking import assemble_sections, chunk_text
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def test_assemble_sections_returns_document_root_for_plain_text() -> None:
@@ -87,3 +91,21 @@ def test_noncanonical_other_heading_is_promoted_to_root_level() -> None:
     assert sections[2].kind == "other"
     assert sections[2].parent_section_id == sections[0].section_id
     assert sections[2].title == "Schedule 1. Definitions"
+
+
+def test_assemble_sections_builds_guidance_point_sections_from_ru_review_fixture() -> None:
+    text = (FIXTURES_DIR / "review_ru_guidance.txt").read_text(encoding="utf-8")
+
+    sections = assemble_sections(text, profile="ru", chunk_policy="guidance")
+
+    assert [section.title for section in sections] == ["Document", "Point 17", "Point 18"]
+    assert sections[0].section_type == "document_root"
+    assert sections[0].text == "Обзор судебной практики по делам о защите прав потребителей."
+    assert sections[1].section_type == "review_point"
+    assert sections[1].legal_unit_type == "guidance_point"
+    assert sections[1].point_number == "17"
+    assert sections[1].legal_unit_number == "17"
+    assert sections[1].source_case_reference is not None
+    assert sections[1].source_case_number == "18-КГ23-155-К4"
+    assert sections[1].source_case_date == "12 декабря 2023 г."
+    assert sections[1].source_case_court == "Верховный Суд РФ"
