@@ -237,6 +237,48 @@ def test_extract_references_resolves_doc_family_per_match() -> None:
     ]
 
 
+def test_extract_references_uses_nearest_doc_family_alias_for_generic_ru_matches() -> None:
+    refs = extract_references(
+        "ст.5 ГК РФ и ст.10 НК РФ",
+        profile="ru",
+    )
+
+    assert [(ref.article_number, ref.doc_family) for ref in refs] == [
+        ("5", "gk_rf"),
+        ("10", "nk_rf"),
+    ]
+
+
+def test_extract_references_parses_compact_ru_marker_number_form() -> None:
+    refs = extract_references("ст.5 ГК РФ", profile="ru")
+
+    assert [(ref.scheme, ref.article_number, ref.doc_family) for ref in refs] == [
+        ("ru_article", "5", "gk_rf"),
+    ]
+
+
+def test_extract_references_rejects_compact_ru_marker_inside_unrelated_word() -> None:
+    refs = extract_references("ГОСТ.5 ГК РФ", profile="ru")
+
+    assert refs == []
+
+
+def test_extract_references_parses_compact_eu_marker_number_form() -> None:
+    refs = extract_references("art.5 GDPR", profile="eu")
+
+    assert [(ref.scheme, ref.article_number, ref.doc_family) for ref in refs] == [
+        ("article", "5", "gdpr"),
+    ]
+
+
+def test_extract_references_parses_compact_us_marker_number_form() -> None:
+    refs = extract_references("sec.5 CFR", profile="us")
+
+    assert [(ref.scheme, ref.article_number, ref.doc_family) for ref in refs] == [
+        ("section", "5", "cfr"),
+    ]
+
+
 def test_extract_references_parses_eu_recital() -> None:
     refs = extract_references("Recital (12) GDPR", profile="eu")
 
