@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "patterns": [
+    {"section_type": "part", "regex": "^(часть|part)\\s+(?P<num>(?:[ivxlcdm\\d]+|первая|вторая|третья|четвертая|четвёртая))\\.?\\s*(?P<title>.*)$"},
+    {"section_type": "chapter", "regex": "^(глава|chapter|chap\\.?)\\s+(?P<num>[ivxlcdm\\d]+)\\.?\\s*(?P<title>.*)$"},
+    {"section_type": "section", "regex": "^(раздел|section|sec\\.?)\\s+(?P<num>[ivxlcdm\\d]+)\\.?\\s*(?P<title>.*)$"},
+    {"section_type": "article", "regex": "^(статья|ст\\.?|article|art\\.?)\\s+(?P<num>\\d+(?:\\.\\d+)*)\\.?\\s*(?P<title>.*)$"},
+    {"section_type": "clause", "regex": "^(пункт|п\\.?|clause|cl\\.?)\\s+(?P<num>\\d+(?:\\.\\d+)*)\\.?\\s*(?P<title>.*)$"},
+    {"section_type": "paragraph", "regex": "^(параграф|paragraph|para\\.?|§)\\s+(?P<num>\\d+(?:\\.\\d+)*)\\.?\\s*(?P<title>.*)$"},
+    {"section_type": "numeric_heading", "regex": "^(?P<num>\\d+(?:\\.\\d+){0,5})[.)]?\\s+(?P<title>[A-Za-zА-Яа-яЁё].+)$"}
+  ]
+}

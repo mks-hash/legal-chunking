@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-02T00:00:00Z",
+  "profiles": {
+    "generic": {
+      "enabled": true,
+      "aliases": ["default", "global", "generic"],
+      "language": null,
+      "assets": {
+        "heading_patterns": "heading_patterns/generic.v1.json",
+        "numbering_markers": "numbering_markers/generic.v1.json",
+        "chunking_policy": "chunking_policy/generic.v1.json"
+      }
+    },
+    "ru": {
+      "enabled": true,
+      "aliases": ["ru", "ru-ru", "russia", "россия"],
+      "language": "ru",
+      "assets": {
+        "heading_patterns": "heading_patterns/ru.v1.json",
+        "numbering_markers": "numbering_markers/ru.v1.json",
+        "chunking_policy": "chunking_policy/ru.v1.json"
+      }
+    },
+    "us": {
+      "enabled": true,
+      "aliases": ["us", "usa", "united states", "u.s."],
+      "language": "en",
+      "assets": {
+        "heading_patterns": "heading_patterns/us.v1.json",
+        "numbering_markers": "numbering_markers/us.v1.json",
+        "chunking_policy": "chunking_policy/us.v1.json"
+      }
+    },
+    "eu": {
+      "enabled": true,
+      "aliases": ["eu", "european union"],
+      "language": "en",
+      "assets": {
+        "heading_patterns": "heading_patterns/eu.v1.json",
+        "numbering_markers": "numbering_markers/eu.v1.json",
+        "chunking_policy": "chunking_policy/eu.v1.json"
+      }
+    }
+  }
+}
