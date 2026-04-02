@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-02T00:00:00Z",
+  "updated_at": "2026-04-03T00:00:00Z",
   "profiles": {
     "generic": {
       "enabled": true,
@@ -21,10 +21,19 @@
         "require_doc_family": true,
         "match_mode": "family_first",
         "doc_families": [
+          {"id": "konstitucia_rf", "kind": "constitutional_norm", "aliases": ["КРФ", "Конституция РФ", "Конституция Российской Федерации"]},
           {"id": "gk_rf", "kind": "code", "aliases": ["ГК РФ", "Гражданский кодекс РФ"]},
           {"id": "apk_rf", "kind": "code", "aliases": ["АПК РФ", "Арбитражный процессуальный кодекс РФ"]},
           {"id": "gpk_rf", "kind": "code", "aliases": ["ГПК РФ", "Гражданский процессуальный кодекс РФ"]},
-          {"id": "nk_rf", "kind": "code", "aliases": ["НК РФ", "Налоговый кодекс РФ"]}
+          {"id": "kas_rf", "kind": "code", "aliases": ["КАС РФ", "Кодекс административного судопроизводства РФ"]},
+          {"id": "upk_rf", "kind": "code", "aliases": ["УПК РФ", "Уголовно-процессуальный кодекс РФ"]},
+          {"id": "uk_rf", "kind": "code", "aliases": ["УК РФ", "Уголовный кодекс РФ"]},
+          {"id": "koap_rf", "kind": "code", "aliases": ["КоАП РФ", "Кодекс РФ об административных правонарушениях"]},
+          {"id": "nk_rf", "kind": "code", "aliases": ["НК РФ", "Налоговый кодекс РФ"]},
+          {"id": "tk_rf", "kind": "code", "aliases": ["ТК РФ", "Трудовой кодекс РФ"]},
+          {"id": "sk_rf", "kind": "code", "aliases": ["СК РФ", "Семейный кодекс РФ"]},
+          {"id": "vs_plenum", "kind": "court_guidance", "aliases": ["Пленум ВС РФ", "Постановление Пленума Верховного Суда РФ"]},
+          {"id": "fed_law", "kind": "primary_legislation", "aliases": ["Федеральный закон №", "Федеральный закон N", "Федеральный закон от", "ФЗ №", "ФЗ N"]}
         ]
       },
       "assets": {
@@ -44,7 +53,10 @@
         "doc_families": [
           {"id": "usc", "kind": "code", "aliases": ["U.S.C.", "USC", "United States Code"]},
           {"id": "cfr", "kind": "secondary_legislation", "aliases": ["CFR", "Code of Federal Regulations"]},
-          {"id": "frcp", "kind": "procedure_rules", "aliases": ["FRCP", "Federal Rules of Civil Procedure"]}
+          {"id": "frcp", "kind": "procedure_rules", "aliases": ["FRCP", "Federal Rules of Civil Procedure"]},
+          {"id": "bankruptcy_code", "kind": "code", "aliases": ["Bankruptcy Code", "U.S. Bankruptcy Code"]},
+          {"id": "scotus", "kind": "case_law", "aliases": ["SCOTUS", "Supreme Court of the United States"]},
+          {"id": "delaware_gcl", "kind": "primary_legislation", "aliases": ["DGCL", "Delaware General Corporation Law"]}
         ]
       },
       "assets": {
@@ -64,7 +76,8 @@
         "doc_families": [
           {"id": "gdpr", "kind": "regulation", "aliases": ["GDPR", "General Data Protection Regulation"]},
           {"id": "eu_regulation", "kind": "regulation", "aliases": ["Regulation (EU)", "EU Regulation"]},
-          {"id": "eu_directive", "kind": "directive", "aliases": ["Directive (EU)", "EU Directive"]}
+          {"id": "eu_directive", "kind": "directive", "aliases": ["Directive (EU)", "EU Directive"]},
+          {"id": "cjeu", "kind": "case_law", "aliases": ["CJEU", "Court of Justice of the European Union"]}
         ]
       },
       "assets": {

@@ -85,3 +85,24 @@ def test_resolve_doc_family_by_manifest_alias() -> None:
 
     assert family is not None
     assert family.id == "gpk_rf"
+
+
+def test_resolve_doc_family_supports_expanded_ru_manifest_aliases() -> None:
+    family = resolve_doc_family("ru", "Постановление Пленума Верховного Суда РФ № 25")
+
+    assert family is not None
+    assert family.id == "vs_plenum"
+
+
+def test_resolve_doc_family_supports_expanded_us_manifest_aliases() -> None:
+    family = resolve_doc_family("us", "See also U.S. Bankruptcy Code section 362")
+
+    assert family is not None
+    assert family.id == "bankruptcy_code"
+
+
+def test_resolve_doc_family_supports_expanded_eu_manifest_aliases() -> None:
+    family = resolve_doc_family("eu", "CJEU judgment in Case C-311/18")
+
+    assert family is not None
+    assert family.id == "cjeu"
