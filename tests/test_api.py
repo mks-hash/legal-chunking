@@ -22,6 +22,7 @@ def test_chunk_text_returns_document() -> None:
     assert document.chunks[0].prev_chunk_id is None
     assert document.chunks[0].next_chunk_id is None
     assert document.chunk_policy == "statute"
+    assert document.trace is None
 
 
 def test_chunk_pdf_extracts_text_and_chunks_pdf(tmp_path: Path) -> None:
@@ -361,3 +362,31 @@ def test_chunk_text_splits_definition_schedule_into_definition_entries() -> None
     ]
     assert document.chunks[0].text.startswith("Client Money:")
     assert document.chunks[1].text.startswith("Sponsored VASP:")
+
+
+def test_chunk_text_trace_reports_structure_and_chunk_decisions() -> None:
+    text = "\n".join(
+        [
+            "Part I - Compliance Management",
+            "A. General principles",
+            "1.",
+            " ".join(["Licensed entities must maintain effective controls."] * 20),
+            "2.",
+            " ".join(["Licensed entities must maintain independent oversight."] * 20),
+        ]
+    )
+
+    document = chunk_text(text, profile="ae", doc_kind="primary_legislation", trace=True)
+
+    assert document.trace is not None
+    event_types = [event.type for event in document.trace.events]
+    assert event_types[:2] == ["chunk_policy_selected", "document_normalized"]
+    assert "heading_detected" in event_types
+    assert "rule_block_split" in event_types
+    rule_split_event = next(
+        event for event in document.trace.events if event.type == "rule_block_split"
+    )
+    assert rule_split_event.data == {
+        "section": "Section A. General principles",
+        "count": 2,
+    }

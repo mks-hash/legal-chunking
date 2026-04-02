@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from legal_chunking.tracing import TraceReport
+
 
 @dataclass(slots=True)
 class Section:
@@ -63,3 +65,4 @@ class Document:
     chunk_policy: str = "default"
     sections: list[Section] = field(default_factory=list)
     chunks: list[Chunk] = field(default_factory=list)
+    trace: TraceReport | None = None
