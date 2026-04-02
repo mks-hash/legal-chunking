@@ -8,7 +8,7 @@ The project is intentionally focused on one narrow problem:
 - normalize document text deterministically
 - detect legal structure such as headings, articles, sections, items, and paragraphs
 - split documents by logical boundaries instead of fixed character windows
-- return stable chunks with rich metadata suitable for downstream indexing or retrieval systems
+- return stable chunks with structured metadata for downstream processing
 
 ## Status
 

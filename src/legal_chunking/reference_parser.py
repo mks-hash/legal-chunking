@@ -11,7 +11,7 @@ from legal_chunking.numbering_markers import (
     get_numbering_family_aliases,
 )
 from legal_chunking.profiles import resolve_doc_family, resolve_profile
-from legal_chunking.references import normalize_article_number, normalize_legal_query_text
+from legal_chunking.references import normalize_article_number, normalize_reference_text
 
 
 @dataclass(slots=True, frozen=True)
@@ -22,6 +22,36 @@ class ParsedReference:
     paragraph_number: str | None
     part_number: str | None
     doc_family: str | None = None
+
+    def to_dict(self) -> dict[str, str | None]:
+        return {
+            "raw": self.raw,
+            "scheme": self.scheme,
+            "article_number": self.article_number,
+            "paragraph_number": self.paragraph_number,
+            "part_number": self.part_number,
+            "doc_family": self.doc_family,
+        }
+
+    def to_canonical_parts(self, *, jurisdiction: str) -> dict[str, str]:
+        normalized_jurisdiction = resolve_profile(jurisdiction).code
+        article_number = normalize_article_number(self.article_number)
+        if not article_number:
+            raise ValueError("ParsedReference must contain article_number for canonical parts")
+        parts = {
+            "jurisdiction": normalized_jurisdiction,
+            "scheme": (self.scheme or "article").lower(),
+            "article_number": article_number,
+        }
+        if self.doc_family:
+            parts["doc_family"] = self.doc_family
+        if self.paragraph_number:
+            parts["paragraph_number"] = (
+                normalize_article_number(self.paragraph_number) or self.paragraph_number
+            )
+        if self.part_number:
+            parts["part_number"] = normalize_article_number(self.part_number) or self.part_number
+        return parts
 
 
 _ARTICLE_TOKEN = r"(?:[A-Za-z]\.?\s*)?\d+[A-Za-z0-9()./-]*"
@@ -259,7 +289,7 @@ def extract_references(
         if isinstance(inherited_family, ReferenceDocFamily)
         else inherited_family
     )
-    text_norm = normalize_legal_query_text(text or "", profile=resolved_profile.code)
+    text_norm = normalize_reference_text(text or "", profile=resolved_profile.code)
     results: list[ParsedReference] = []
     seen: set[tuple[str, str | None, str | None, str | None, str | None]] = set()
     scoped_patterns, generic_patterns = _jurisdiction_scheme_patterns(
@@ -327,28 +357,4 @@ def extract_references(
             )
 
     return results
-
-
-def normalize_reference(
-    ref: ParsedReference,
-    *,
-    profile: str,
-    doc_family: str | None = None,
-) -> str | None:
-    if not ref.article_number:
-        return None
-    family = doc_family or ref.doc_family or "unknown"
-    parts = [
-        f"jur={resolve_profile(profile).code}",
-        f"doc={family}",
-        f"scheme={(ref.scheme or 'article').lower()}",
-        f"article={normalize_article_number(ref.article_number) or ref.article_number}",
-    ]
-    if ref.paragraph_number:
-        parts.append(f"paragraph={ref.paragraph_number}")
-    if ref.part_number:
-        parts.append(f"part={ref.part_number}")
-    return "|".join(parts)
-
-
-__all__ = ["ParsedReference", "extract_references", "normalize_reference"]
+__all__ = ["ParsedReference", "extract_references"]

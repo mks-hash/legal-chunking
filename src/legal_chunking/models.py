@@ -42,7 +42,6 @@ class Document:
     profile: str
     language: str | None
     text: str
-    pipeline_version: str = "0.1.0"
     chunk_policy: str = "default"
     sections: list[Section] = field(default_factory=list)
     chunks: list[Chunk] = field(default_factory=list)

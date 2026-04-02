@@ -1,13 +1,10 @@
-from legal_chunking import (
-    ReferenceContextResolver,
-    extract_references,
+from legal_chunking import ParsedReference, extract_references
+from legal_chunking.reference_context import ReferenceContextResolver
+from legal_chunking.references import (
     normalize_article_number,
-    normalize_legal_query_text,
     normalize_legal_text,
-    normalize_normalized_ref,
-    normalize_normalized_refs,
     normalize_numeric_scripts,
-    normalize_reference,
+    normalize_reference_text,
 )
 
 
@@ -55,29 +52,104 @@ def test_normalize_legal_text_drops_non_reference_footnote_markers() -> None:
     assert normalize_legal_text("Комментарий[12]", profile="ru") == "Комментарий"
 
 
-def test_normalize_legal_query_text_collapses_whitespace_after_normalization() -> None:
+def test_normalize_reference_text_collapses_whitespace_after_normalization() -> None:
     text = "  171²   ук   "
 
-    assert normalize_legal_query_text(text, profile="ru") == "171.2 ук"
+    assert normalize_reference_text(text, profile="ru") == "171.2 ук"
 
 
-def test_normalize_normalized_ref_normalizes_numeric_components() -> None:
-    ref = "article=171²|paragraph=3¹|scheme=ru_article"
+def test_parsed_reference_to_canonical_parts_normalizes_numeric_components() -> None:
+    ref = ParsedReference(
+        raw="пункт 3¹ статьи 171² ГК РФ",
+        scheme="ru_article",
+        article_number="171²",
+        paragraph_number="3¹",
+        part_number=None,
+        doc_family="gk_rf",
+    )
 
-    assert normalize_normalized_ref(ref) == "article=171.2|paragraph=3.1|scheme=ru_article"
+    assert ref.to_canonical_parts(jurisdiction="ru") == {
+        "jurisdiction": "ru",
+        "scheme": "ru_article",
+        "article_number": "171.2",
+        "doc_family": "gk_rf",
+        "paragraph_number": "3.1",
+    }
 
 
-def test_normalize_normalized_refs_deduplicates_stably() -> None:
-    refs = [
-        "article=171²|scheme=ru_article",
-        "article=171.2|scheme=ru_article",
-        "article=302|scheme=ru_article",
-    ]
+def test_parsed_reference_to_dict_exposes_structured_fields() -> None:
+    ref = ParsedReference(
+        raw="15 U.S.C. § 78j",
+        scheme="section",
+        article_number="78j",
+        paragraph_number=None,
+        part_number=None,
+        doc_family="usc",
+    )
 
-    assert normalize_normalized_refs(refs) == [
-        "article=171.2|scheme=ru_article",
-        "article=302|scheme=ru_article",
-    ]
+    assert ref.to_dict() == {
+        "raw": "15 U.S.C. § 78j",
+        "scheme": "section",
+        "article_number": "78j",
+        "paragraph_number": None,
+        "part_number": None,
+        "doc_family": "usc",
+    }
+
+
+def test_parsed_reference_to_canonical_parts_preserves_full_paragraph_number() -> None:
+    ref = ParsedReference(
+        raw="пункт 3.2.1 статьи 450 ГК РФ",
+        scheme="ru_article",
+        article_number="450",
+        paragraph_number="3.2.1",
+        part_number=None,
+        doc_family="gk_rf",
+    )
+
+    assert ref.to_canonical_parts(jurisdiction="ru") == {
+        "jurisdiction": "ru",
+        "scheme": "ru_article",
+        "article_number": "450",
+        "doc_family": "gk_rf",
+        "paragraph_number": "3.2.1",
+    }
+
+
+def test_parsed_reference_to_canonical_parts_normalizes_jurisdiction_alias() -> None:
+    ref = ParsedReference(
+        raw="15 U.S.C. § 78j",
+        scheme="section",
+        article_number="78j",
+        paragraph_number=None,
+        part_number=None,
+        doc_family="usc",
+    )
+
+    assert ref.to_canonical_parts(jurisdiction="U.S.") == {
+        "jurisdiction": "us",
+        "scheme": "section",
+        "article_number": "78j",
+        "doc_family": "usc",
+    }
+
+
+def test_parsed_reference_to_canonical_parts_rejects_missing_article_number() -> None:
+    ref = ParsedReference(
+        raw="Article",
+        scheme="article",
+        article_number=None,
+        paragraph_number=None,
+        part_number=None,
+        doc_family=None,
+    )
+
+    try:
+        ref.to_canonical_parts(jurisdiction="ru")
+    except ValueError as exc:
+        assert "article_number" in str(exc)
+    else:
+        raise AssertionError("Expected canonical parts to reject missing article_number")
 
 
 def test_normalize_legal_text_preserves_plain_range_endpoints() -> None:
@@ -172,11 +244,3 @@ def test_extract_references_parses_eu_recital() -> None:
     assert refs[0].scheme == "recital"
     assert refs[0].article_number == "12"
     assert refs[0].doc_family == "gdpr"
-
-
-def test_normalize_reference_builds_canonical_reference_string() -> None:
-    ref = extract_references("пункт 3 статьи 450 ГК РФ", profile="ru")[0]
-
-    assert normalize_reference(ref, profile="ru") == (
-        "jur=ru|doc=gk_rf|scheme=ru_article|article=450|paragraph=3"
-    )

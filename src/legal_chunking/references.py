@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
 from functools import lru_cache
 
 from legal_chunking.normalize import normalize_extracted_text
@@ -254,52 +253,13 @@ def normalize_legal_text(text: str, *, profile: str = "generic") -> str:
     return normalized.strip()
 
 
-def normalize_legal_query_text(text: str, *, profile: str = "generic") -> str:
+def normalize_reference_text(text: str, *, profile: str = "generic") -> str:
     return re.sub(r"\s+", " ", normalize_legal_text(text or "", profile=profile)).strip()
-
-
-def normalize_normalized_ref(ref: str | None) -> str | None:
-    if ref is None:
-        return None
-    raw = ref.strip()
-    if not raw:
-        return None
-
-    chunks: list[str] = []
-    for token in raw.split("|"):
-        key, sep, value = token.partition("=")
-        if not sep:
-            if token.strip():
-                chunks.append(token.strip())
-            continue
-        normalized_key = key.strip()
-        normalized_value = value.strip()
-        if normalized_key in {"article", "paragraph", "part"}:
-            normalized_value = normalize_article_number(normalized_value) or normalized_value
-        chunks.append(
-            f"{normalized_key}={normalized_value}" if normalized_key else normalized_value
-        )
-    normalized = "|".join(chunk for chunk in chunks if chunk)
-    return normalized or None
-
-
-def normalize_normalized_refs(refs: Iterable[str] | None) -> list[str]:
-    normalized_refs: list[str] = []
-    seen: set[str] = set()
-    for ref in refs or ():
-        normalized = normalize_normalized_ref(ref)
-        if not normalized or normalized in seen:
-            continue
-        seen.add(normalized)
-        normalized_refs.append(normalized)
-    return normalized_refs
 
 
 __all__ = [
     "normalize_article_number",
-    "normalize_legal_query_text",
     "normalize_legal_text",
-    "normalize_normalized_ref",
-    "normalize_normalized_refs",
+    "normalize_reference_text",
     "normalize_numeric_scripts",
 ]

@@ -10,7 +10,7 @@ The library focuses on one problem:
 - normalize text deterministically
 - detect structural boundaries such as headings, articles, sections, clauses, and paragraphs
 - build chunks from logical legal boundaries instead of fixed-size windows
-- return stable chunk metadata suitable for downstream indexing and retrieval systems
+- return stable structured metadata for downstream processing
 
 ## Non-Goals
 

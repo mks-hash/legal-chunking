@@ -1,6 +1,6 @@
 import pytest
 
-from legal_chunking import compile_heading_patterns, detect_heading
+from legal_chunking.detect.headings import compile_heading_patterns, detect_heading
 
 
 def test_compile_heading_patterns_for_ru_profile() -> None:

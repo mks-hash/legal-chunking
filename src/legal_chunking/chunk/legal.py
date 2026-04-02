@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 
-from legal_chunking.hashing import compute_chunk_input_hash, compute_semantic_hash
+from legal_chunking.hashing import _compute_chunk_identity_hash, compute_semantic_hash
 from legal_chunking.models import Chunk, Section
 from legal_chunking.normalize import normalize_chunk_text
 from legal_chunking.profiles import ChunkFallbackConfig
@@ -54,7 +54,7 @@ def _append_chunk(
         return
 
     order = len(chunks) + 1
-    chunk_input_hash = compute_chunk_input_hash(text=normalized_text, profile=profile)
+    chunk_input_hash = _compute_chunk_identity_hash(text=normalized_text, profile=profile)
     raw = f"{source_name}:{section.section_id}:{order}:{chunk_method}:{chunk_input_hash}"
     chunk_id = f"chunk-{hashlib.sha256(raw.encode('utf-8')).hexdigest()[:12]}"
     chunks.append(

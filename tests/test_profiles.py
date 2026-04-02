@@ -1,13 +1,11 @@
-from legal_chunking import (
+from legal_chunking import chunk_pdf, chunk_text
+from legal_chunking.manifest import load_manifest
+from legal_chunking.numbering_markers import (
     build_numbering_marker_pattern,
-    chunk_pdf,
-    chunk_text,
     get_numbering_aliases,
     get_numbering_family_aliases,
-    load_manifest,
-    resolve_doc_family,
-    resolve_profile,
 )
+from legal_chunking.profiles import resolve_doc_family, resolve_profile
 
 
 def test_load_manifest_exposes_enabled_profiles() -> None:
