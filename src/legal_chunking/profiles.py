@@ -69,7 +69,10 @@ def select_chunk_policy(
         raise ValueError("Chunking policy payload must contain an object in 'defaults'")
 
     normalized_kind = (doc_kind or "").strip().lower()
-    selected = defaults.get(normalized_kind) or defaults.get("code") or defaults.get("other")
+    if normalized_kind:
+        selected = defaults.get(normalized_kind) or defaults.get("other") or defaults.get("code")
+    else:
+        selected = defaults.get("code") or defaults.get("other")
     policy = str(selected or "default").strip().lower()
     if policy not in ALLOWED_CHUNK_POLICIES:
         raise ValueError(f"Unsupported chunk policy '{policy}'")

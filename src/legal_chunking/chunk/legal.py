@@ -80,30 +80,8 @@ def _assign_chunk_adjacency(chunks: list[Chunk]) -> list[Chunk]:
 
 
 def _select_sections(sections: list[Section], *, chunk_policy: str) -> list[Section]:
-    content_sections = [section for section in sections if (section.text or "").strip()]
-    if not content_sections:
-        return []
-
-    root_sections = [section for section in content_sections if section.kind == "document_root"]
-    body_sections = [section for section in content_sections if section.kind != "document_root"]
-
-    if chunk_policy == "statute":
-        for preferred_kind in ("clause", "paragraph"):
-            selected = [section for section in body_sections if section.kind == preferred_kind]
-            if selected:
-                return selected
-        article_sections = [section for section in body_sections if section.kind == "article"]
-        if article_sections:
-            return article_sections
-        return body_sections or root_sections
-
-    if chunk_policy == "guidance":
-        return body_sections or root_sections
-
-    if chunk_policy == "case_law":
-        return body_sections or root_sections
-
-    return body_sections or root_sections
+    _ = chunk_policy
+    return [section for section in sections if (section.text or "").strip()]
 
 
 def _split_section_text(

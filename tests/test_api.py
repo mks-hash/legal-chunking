@@ -59,9 +59,12 @@ def test_chunk_text_prefers_lower_statute_units_when_available() -> None:
     document = chunk_text(text, profile="generic", doc_kind="primary_legislation")
 
     assert document.chunk_policy == "statute"
-    assert len(document.chunks) == 1
-    assert document.chunks[0].section_title == "Section 1.1.1. Detailed rule"
-    assert document.chunks[0].chunk_method == "statute_unit"
+    assert len(document.chunks) == 2
+    assert [chunk.section_title for chunk in document.chunks] == [
+        "Article 1. General provisions",
+        "Section 1.1.1. Detailed rule",
+    ]
+    assert all(chunk.chunk_method == "statute_unit" for chunk in document.chunks)
 
 
 def test_chunk_text_splits_guidance_root_into_multiple_chunks() -> None:
@@ -86,3 +89,22 @@ def test_chunk_text_uses_char_fallback_for_oversized_paragraphs() -> None:
     assert document.chunk_policy == "default"
     assert len(document.chunks) == 2
     assert [chunk.chunk_method for chunk in document.chunks] == ["char_fallback", "char_fallback"]
+
+
+def test_chunk_text_preserves_preamble_before_first_heading() -> None:
+    text = "\n".join(
+        [
+            "Introductory preamble text.",
+            "Article 1. General provisions",
+            "Body of article one.",
+        ]
+    )
+
+    document = chunk_text(text, profile="generic", doc_kind="primary_legislation")
+
+    assert document.chunk_policy == "statute"
+    assert [chunk.section_title for chunk in document.chunks] == [
+        "Document",
+        "Article 1. General provisions",
+    ]
+    assert document.chunks[0].text == "Introductory preamble text."
