@@ -16,6 +16,15 @@ _ALPHA_MARKER_ONLY_RE = re.compile(r"^[A-Z]\.$")
 _TOC_LEADER_RE = re.compile(r"\.{5,}\s*\d+\s*$")
 _EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b")
 _TERMINAL_PUNCTUATION = (".", "!", "?", ":", ";")
+_LEADING_HEADER_MARKERS = (
+    "virtual assets regulatory authority",
+    "صندوق بريد",
+    "سُلطة تنظيم",
+    "سلطة تنظيم",
+    "سلطة تنظيم الأصول الافتراضية",
+    "سُلطة تنظيم الأصول الافتراضية",
+    "األصول االفتراضية",
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -61,36 +70,21 @@ def _is_leading_header_fragment(line: str) -> bool:
     lowered = stripped.lower()
     if not stripped:
         return False
-    if len(stripped) == 1 and stripped.isalpha() and stripped.islower():
-        return True
-    if any(
-        marker in lowered
-        for marker in (
-            "دبي",
-            "العربية المتحدة",
-            "سُلطة تنظيم",
-            "سلطة تنظيم",
-            "األصول االفتراضية",
-        )
-    ):
-        return True
-    return False
+    return any(marker in lowered for marker in _LEADING_HEADER_MARKERS)
 
 
 def _trim_leading_header_fragments(lines: list[str]) -> list[str]:
     start = 0
-    while start < len(lines) and _is_leading_header_fragment(lines[start]):
+    while start < len(lines) and start < 2 and _is_leading_header_fragment(lines[start]):
         start += 1
     return lines[start:]
 
 
-def _is_heading_like_line(line: str, *, profile: str) -> bool:
+def _is_structural_heading_line(line: str, *, profile: str) -> bool:
     normalized = (line or "").strip()
     if not normalized:
         return False
     if detect_heading(normalized, profile=profile) is not None:
-        return True
-    if _LIST_MARKER_RE.match(normalized):
         return True
     if len(normalized) > 120:
         return False
@@ -99,6 +93,13 @@ def _is_heading_like_line(line: str, *, profile: str) -> bool:
         return False
     uppercase_ratio = sum(1 for char in letters if char.isupper()) / len(letters)
     return uppercase_ratio >= 0.85
+
+
+def _is_enumerated_content_line(line: str) -> bool:
+    normalized = (line or "").strip()
+    if not normalized:
+        return False
+    return bool(_LIST_MARKER_RE.match(normalized))
 
 
 def _looks_like_explicit_heading_start(line: str) -> bool:
@@ -118,7 +119,8 @@ def _merge_marker_lines(lines: list[str]) -> list[str]:
         line = lines[idx]
         next_line = lines[idx + 1] if idx + 1 < len(lines) else ""
         if _ROMAN_MARKER_ONLY_RE.match(line) and _looks_like_explicit_heading_start(next_line):
-            idx += 1
+            merged.append(next_line)
+            idx += 2
             continue
         if _ALPHA_MARKER_ONLY_RE.match(line) and next_line:
             merged.append(f"{line} {next_line}")
@@ -133,7 +135,10 @@ def _looks_like_continuation(line: str, *, profile: str) -> bool:
     normalized = (line or "").strip()
     if not normalized:
         return False
-    if _LIST_MARKER_RE.match(normalized) or _is_heading_like_line(normalized, profile=profile):
+    if _is_enumerated_content_line(normalized) or _is_structural_heading_line(
+        normalized,
+        profile=profile,
+    ):
         return False
     first_char = normalized[0]
     return first_char.islower() or first_char in {'"', "«", "(", "["}
@@ -192,7 +197,13 @@ def _normalize_page_raw_text(
             continue
         if _TOC_LEADER_RE.search(line):
             continue
-        if _is_heading_like_line(line, profile=profile):
+        if _is_structural_heading_line(line, profile=profile):
+            if buffer:
+                paragraphs.extend(part for part in buffer if part)
+                buffer = []
+            paragraphs.append(line)
+            continue
+        if _is_enumerated_content_line(line):
             if buffer:
                 paragraphs.extend(part for part in buffer if part)
                 buffer = []
