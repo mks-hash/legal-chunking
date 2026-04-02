@@ -1,3 +1,5 @@
+import pytest
+
 from legal_chunking import compile_heading_patterns, detect_heading
 
 
@@ -35,8 +37,15 @@ def test_detect_numeric_heading_maps_to_section_when_top_level() -> None:
     assert heading.label == "Section 1. Scope and purpose"
 
 
-def test_reject_non_heading_numeric_line() -> None:
-    heading = detect_heading("1 this line should stay body text", profile="generic")
+@pytest.mark.parametrize(
+    "line",
+    [
+        "1 this line should stay body text",
+        "2024 Revenue increased across the portfolio",
+    ],
+)
+def test_reject_non_heading_numeric_line(line: str) -> None:
+    heading = detect_heading(line, profile="generic")
 
     assert heading is None
 

@@ -73,10 +73,30 @@ def _format_label(section_type: str, match: re.Match[str]) -> str:
     return match.group(0).strip()
 
 
-def _is_admissible_numeric_heading(num_token: str, title: str, *, chunk_policy: str) -> bool:
+def _has_explicit_numeric_heading_marker(line: str, num_token: str) -> bool:
+    heading = (line or "").strip()
+    normalized_num = (num_token or "").strip()
+    if not heading or not normalized_num:
+        return False
+    if "." in normalized_num:
+        return True
+
+    suffix = heading[len(normalized_num) :].lstrip()
+    return bool(suffix[:1] in {".", ")"})
+
+
+def _is_admissible_numeric_heading(
+    line: str,
+    num_token: str,
+    title: str,
+    *,
+    chunk_policy: str,
+) -> bool:
     normalized_num = (num_token or "").strip()
     tail = (title or "").strip()
     if not normalized_num or not tail:
+        return False
+    if not _has_explicit_numeric_heading_marker(line, normalized_num):
         return False
     if len(tail) > 120:
         return False
@@ -131,7 +151,12 @@ def detect_heading(
         if section_type == "numeric_heading":
             raw_num = match.groupdict().get("num") or ""
             tail = match.groupdict().get("title") or ""
-            if not _is_admissible_numeric_heading(raw_num, tail, chunk_policy=chunk_policy):
+            if not _is_admissible_numeric_heading(
+                heading,
+                raw_num,
+                tail,
+                chunk_policy=chunk_policy,
+            ):
                 return None
             num = raw_num.rstrip(".")
             label = f"Section {num}" + (f". {tail}" if tail else "")
