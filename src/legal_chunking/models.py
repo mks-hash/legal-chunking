@@ -28,6 +28,8 @@ class Chunk:
     article_number: str | None = None
     paragraph_number: str | None = None
     semantic_hash: str = ""
+    prev_chunk_id: str | None = None
+    next_chunk_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -36,5 +38,6 @@ class Document:
     profile: str
     language: str | None
     text: str
+    pipeline_version: str = "0.1.0"
     sections: list[Section] = field(default_factory=list)
     chunks: list[Chunk] = field(default_factory=list)
