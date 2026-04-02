@@ -7,6 +7,7 @@
     {"section_type": "article", "regex": "^(статья|ст\\.?|article|art\\.?)\\s+(?P<num>\\d+(?:\\.\\d+)*)\\.?\\s*(?P<title>.*)$"},
     {"section_type": "clause", "regex": "^(пункт|п\\.?|clause|cl\\.?)\\s+(?P<num>\\d+(?:\\.\\d+)*)\\.?\\s*(?P<title>.*)$"},
     {"section_type": "paragraph", "regex": "^(параграф|paragraph|para\\.?|§)\\s+(?P<num>\\d+(?:\\.\\d+)*)\\.?\\s*(?P<title>.*)$"},
+    {"section_type": "schedule", "regex": "^(schedule|annex|appendix|exhibit|приложение|прил\\.?)\\s*(?:№|N|No\\.?)?\\s*(?P<num>[a-zа-яivxlcdm\\d]+)\\.?\\s*(?P<title>.*)$"},
     {"section_type": "numeric_heading", "regex": "^(?P<num>\\d+(?:\\.\\d+){0,5})[.)]?\\s+(?P<title>[A-Za-zА-Яа-яЁё].+)$"}
   ]
 }
