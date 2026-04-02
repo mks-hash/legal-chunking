@@ -1,4 +1,12 @@
-from legal_chunking import chunk_pdf, chunk_text, load_manifest, resolve_profile
+from legal_chunking import (
+    build_numbering_marker_pattern,
+    chunk_pdf,
+    chunk_text,
+    get_numbering_aliases,
+    get_numbering_family_aliases,
+    load_manifest,
+    resolve_profile,
+)
 
 
 def test_load_manifest_exposes_enabled_profiles() -> None:
@@ -45,3 +53,28 @@ def test_unknown_doc_kind_uses_other_policy_before_code_default() -> None:
     document = chunk_text("Internal note body.", profile="generic", doc_kind="internal_memo")
 
     assert document.chunk_policy == "default"
+
+
+def test_numbering_family_aliases_are_asset_backed() -> None:
+    aliases = get_numbering_family_aliases(profile="ru", family="article_like")
+
+    assert "статья" in aliases
+    assert "ст." in aliases
+
+
+def test_numbering_aliases_deduplicate_across_families() -> None:
+    aliases = get_numbering_aliases(
+        profile="us",
+        families=["section_like", "paragraph_like", "section_like"],
+    )
+
+    assert aliases.count("section") == 1
+    assert "§" in aliases
+
+
+def test_build_numbering_marker_pattern_prefers_longer_aliases_first() -> None:
+    pattern = build_numbering_marker_pattern(profile="us", family="section_like")
+    parts = pattern.removeprefix("(?:").removesuffix(")").split("|")
+
+    assert pattern.startswith("(?:")
+    assert parts[:2] == ["sections", "section"]
