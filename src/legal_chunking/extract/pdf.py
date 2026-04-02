@@ -11,6 +11,10 @@ from legal_chunking.normalize import normalize_extracted_text
 
 _PAGE_NUMBER_LINE_RE = re.compile(r"^\d{1,4}$")
 _LIST_MARKER_RE = re.compile(r"^(?:[-*•]|[0-9]+[.)]|[а-яa-z]\))\s+", re.IGNORECASE)
+_ROMAN_MARKER_ONLY_RE = re.compile(r"^[IVXLCDM]+\.$")
+_ALPHA_MARKER_ONLY_RE = re.compile(r"^[A-Z]\.$")
+_TOC_LEADER_RE = re.compile(r"\.{5,}\s*\d+\s*$")
+_EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b")
 _TERMINAL_PUNCTUATION = (".", "!", "?", ":", ";")
 
 
@@ -24,6 +28,60 @@ def _normalize_line_text(line: str) -> str:
     normalized = (line or "").replace("\xa0", " ")
     normalized = normalized.replace("\u00ad", "").replace("\u2011", "-")
     return re.sub(r"[ \t]+", " ", normalized).strip()
+
+
+def _find_repeated_page_noise(page_lines: list[list[str]]) -> set[str]:
+    counts: dict[str, int] = {}
+    for lines in page_lines:
+        candidates = [line for line in (*lines[:3], *lines[-3:]) if len(line) >= 40]
+        for line in set(candidates):
+            counts[line] = counts.get(line, 0) + 1
+    return {line for line, count in counts.items() if count >= 3}
+
+
+def _is_running_header_line(line: str) -> bool:
+    lowered = (line or "").strip().lower()
+    if not lowered:
+        return False
+    if "contents" == lowered:
+        return True
+    if "صندوق بريد" in lowered:
+        return True
+    if "العربية المتحدة" in lowered:
+        return True
+    if _EMAIL_RE.search(lowered):
+        return True
+    if "po box" in lowered and "authority" in lowered:
+        return True
+    return False
+
+
+def _is_leading_header_fragment(line: str) -> bool:
+    stripped = (line or "").strip()
+    lowered = stripped.lower()
+    if not stripped:
+        return False
+    if len(stripped) == 1 and stripped.isalpha() and stripped.islower():
+        return True
+    if any(
+        marker in lowered
+        for marker in (
+            "دبي",
+            "العربية المتحدة",
+            "سُلطة تنظيم",
+            "سلطة تنظيم",
+            "األصول االفتراضية",
+        )
+    ):
+        return True
+    return False
+
+
+def _trim_leading_header_fragments(lines: list[str]) -> list[str]:
+    start = 0
+    while start < len(lines) and _is_leading_header_fragment(lines[start]):
+        start += 1
+    return lines[start:]
 
 
 def _is_heading_like_line(line: str, *, profile: str) -> bool:
@@ -41,6 +99,34 @@ def _is_heading_like_line(line: str, *, profile: str) -> bool:
         return False
     uppercase_ratio = sum(1 for char in letters if char.isupper()) / len(letters)
     return uppercase_ratio >= 0.85
+
+
+def _looks_like_explicit_heading_start(line: str) -> bool:
+    normalized = (line or "").strip()
+    if not normalized:
+        return False
+    lowered = normalized.lower()
+    return lowered.startswith(
+        ("part ", "chapter ", "section ", "article ", "schedule ", "annex ", "appendix ")
+    )
+
+
+def _merge_marker_lines(lines: list[str]) -> list[str]:
+    merged: list[str] = []
+    idx = 0
+    while idx < len(lines):
+        line = lines[idx]
+        next_line = lines[idx + 1] if idx + 1 < len(lines) else ""
+        if _ROMAN_MARKER_ONLY_RE.match(line) and _looks_like_explicit_heading_start(next_line):
+            idx += 1
+            continue
+        if _ALPHA_MARKER_ONLY_RE.match(line) and next_line:
+            merged.append(f"{line} {next_line}")
+            idx += 2
+            continue
+        merged.append(line)
+        idx += 1
+    return merged
 
 
 def _looks_like_continuation(line: str, *, profile: str) -> bool:
@@ -73,9 +159,25 @@ def _append_line(buffer: list[str], line: str, *, profile: str) -> None:
     buffer[-1] = f"{previous} {line}"
 
 
-def _normalize_page_raw_text(raw: str, *, profile: str) -> str:
+def _normalize_page_raw_text(
+    raw: str,
+    *,
+    profile: str,
+    repeated_noise: set[str] | None = None,
+) -> str:
     raw = (raw or "").replace("\r", "\n")
     lines = [_normalize_line_text(line) for line in raw.split("\n")]
+    lines = [
+        line
+        for line in lines
+        if line
+        and line not in (repeated_noise or set())
+        and not _is_running_header_line(line)
+    ]
+    lines = _trim_leading_header_fragments(lines)
+    if sum(1 for line in lines if _TOC_LEADER_RE.search(line)) >= 2:
+        return ""
+    lines = _merge_marker_lines(lines)
 
     paragraphs: list[str] = []
     buffer: list[str] = []
@@ -87,6 +189,8 @@ def _normalize_page_raw_text(raw: str, *, profile: str) -> str:
                 buffer = []
             continue
         if _PAGE_NUMBER_LINE_RE.match(line):
+            continue
+        if _TOC_LEADER_RE.search(line):
             continue
         if _is_heading_like_line(line, profile=profile):
             if buffer:
@@ -114,11 +218,30 @@ def extract_pdf_pages(path: str | Path, *, profile: str = "generic") -> list[Pdf
     document = fitz.open(Path(path))
     pages: list[PdfPageText] = []
     try:
+        raw_pages: list[tuple[int, str]] = []
+        normalized_line_pages: list[list[str]] = []
         for page_number, page in enumerate(document, start=1):
             raw = (page.get_text("text") or "").strip()
             if not raw:
                 continue
-            normalized = _normalize_page_raw_text(raw, profile=profile)
+            raw_pages.append((page_number, raw))
+            normalized_lines = [
+                line
+                for line in (
+                    _normalize_line_text(part) for part in raw.replace("\r", "\n").split("\n")
+                )
+                if line
+            ]
+            normalized_line_pages.append(
+                normalized_lines
+            )
+        repeated_noise = _find_repeated_page_noise(normalized_line_pages)
+        for page_number, raw in raw_pages:
+            normalized = _normalize_page_raw_text(
+                raw,
+                profile=profile,
+                repeated_noise=repeated_noise,
+            )
             if not normalized:
                 continue
             pages.append(PdfPageText(page_number=page_number, text=normalized))

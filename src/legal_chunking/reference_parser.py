@@ -279,6 +279,8 @@ def _jurisdiction_scheme_patterns(
                 ),
             ]
         )
+    elif code == "ae":
+        generic_patterns.extend(_asset_generic_patterns_for_profile(code))
     else:
         generic_patterns.extend(_asset_generic_patterns_for_profile("generic"))
         generic_patterns.extend(_COMMON_SECTION_ABBREV_PATTERNS)

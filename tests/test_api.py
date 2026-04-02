@@ -91,6 +91,64 @@ def test_chunk_pdf_preserves_guidance_policy_when_doc_kind_is_provided(tmp_path:
     ]
 
 
+def test_chunk_pdf_cleans_toc_noise_and_detects_uae_rulebook_sections(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "vara-rulebook.pdf"
+    document_writer = fitz.open()
+    try:
+        first_page = document_writer.new_page()
+        first_page.insert_text(
+            (72, 72),
+            (
+                "header@vara.ae - Virtual Assets Regulatory Authority\n"
+                "Contents\n"
+                "I.\n"
+                "PART I - COMPLIANCE MANAGEMENT ................................ 6\n"
+                "A.\n"
+                "General principles ................................ 6\n"
+            ),
+        )
+        second_page = document_writer.new_page()
+        second_page.insert_text(
+            (72, 72),
+            (
+                "header@vara.ae - Virtual Assets Regulatory Authority\n"
+                "Introduction\n"
+                "This Rulebook is issued by VARA.\n"
+                "I.\n"
+                "Part I - Compliance Management\n"
+                "A.\n"
+                "General principles\n"
+                "Licensed entities must maintain controls.\n"
+                "B.\n"
+                "Compliance management system\n"
+                "Firms must document their framework.\n"
+            ),
+        )
+        document_writer.save(pdf_path)
+    finally:
+        document_writer.close()
+
+    document = chunk_pdf(pdf_path, profile="ae", doc_kind="primary_legislation")
+
+    assert document.profile == "ae"
+    assert document.chunk_policy == "statute"
+    assert "Contents" not in document.text
+    assert "................................" not in document.text
+    assert "header@vara.ae" not in document.text
+    assert [section.title for section in document.sections] == [
+        "Document",
+        "Part I. Compliance Management",
+        "Section A. General principles",
+        "Section B. Compliance management system",
+    ]
+    assert [chunk.section_title for chunk in document.chunks] == [
+        "Document",
+        "Part I. Compliance Management",
+        "Section A. General principles",
+        "Section B. Compliance management system",
+    ]
+
+
 def test_normalize_extracted_text_preserves_paragraph_boundaries() -> None:
     raw = "  Article 1.\r\n\r\nClause\u00A01 \n\n\nClause 2  "
 

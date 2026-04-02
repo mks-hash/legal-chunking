@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "defaults": {
+    "code": "statute",
+    "primary_legislation": "statute",
+    "secondary_legislation": "statute",
+    "court_guidance": "guidance",
+    "guidance": "guidance",
+    "case_law": "case_law",
+    "commentary": "guidance",
+    "other": "default"
+  },
+  "fallback": {
+    "max_chars": 1200,
+    "overlap_chars": 120
+  }
+}

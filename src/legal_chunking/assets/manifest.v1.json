@@ -85,6 +85,29 @@
         "numbering_markers": "numbering_markers/eu.v1.json",
         "chunking_policy": "chunking_policy/eu.v1.json"
       }
+    },
+    "ae": {
+      "enabled": true,
+      "aliases": ["ae", "uae", "u.a.e.", "united arab emirates"],
+      "language": "en",
+      "reference": {
+        "enabled": true,
+        "require_doc_family": true,
+        "match_mode": "family_first",
+        "doc_families": [
+          {"id": "adgm_regulations", "kind": "regulatory_instrument", "aliases": ["ADGM", "Abu Dhabi Global Market"]},
+          {"id": "difc_law", "kind": "primary_legislation", "aliases": ["DIFC", "Dubai International Financial Centre", "DIFC Law", "DIFC Laws"]},
+          {"id": "dfsa", "kind": "regulatory_instrument", "aliases": ["DFSA", "Dubai Financial Services Authority"]},
+          {"id": "vara", "kind": "regulatory_instrument", "aliases": ["VARA", "Virtual Assets Regulatory Authority"]},
+          {"id": "cbuae", "kind": "regulatory_instrument", "aliases": ["CBUAE", "Central Bank of the UAE", "UAE Central Bank"]},
+          {"id": "uae_federal_law", "kind": "primary_legislation", "aliases": ["UAE Federal Law", "Federal Law No.", "Federal Decree-Law"]}
+        ]
+      },
+      "assets": {
+        "heading_patterns": "heading_patterns/ae.v1.json",
+        "numbering_markers": "numbering_markers/ae.v1.json",
+        "chunking_policy": "chunking_policy/ae.v1.json"
+      }
     }
   }
 }
