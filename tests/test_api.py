@@ -57,6 +57,40 @@ def test_chunk_pdf_extracts_text_and_chunks_pdf(tmp_path: Path) -> None:
     ]
 
 
+def test_chunk_pdf_preserves_guidance_policy_when_doc_kind_is_provided(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "guidance.pdf"
+    document_writer = fitz.open()
+    try:
+        page = document_writer.new_page()
+        page.insert_text(
+            (72, 72),
+            (
+                "Review introduction.\n\n"
+                "1. First review point.\n"
+                "Point body.\n\n"
+                "2. Second review point.\n"
+                "Second body."
+            ),
+        )
+        document_writer.save(pdf_path)
+    finally:
+        document_writer.close()
+
+    document = chunk_pdf(pdf_path, profile="generic", doc_kind="court_guidance")
+
+    assert document.chunk_policy == "guidance"
+    assert [chunk.section_title for chunk in document.chunks] == [
+        "Document",
+        "Point 1",
+        "Point 2",
+    ]
+    assert [chunk.chunk_method for chunk in document.chunks] == [
+        "guidance_preamble",
+        "guidance_point",
+        "guidance_point",
+    ]
+
+
 def test_normalize_extracted_text_preserves_paragraph_boundaries() -> None:
     raw = "  Article 1.\r\n\r\nClause\u00A01 \n\n\nClause 2  "
 

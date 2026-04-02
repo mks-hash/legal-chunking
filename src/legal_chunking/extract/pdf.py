@@ -6,8 +6,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-import fitz
-
 from legal_chunking.detect.headings import detect_heading
 from legal_chunking.normalize import normalize_extracted_text
 
@@ -106,6 +104,13 @@ def _normalize_page_raw_text(raw: str, *, profile: str) -> str:
 
 def extract_pdf_pages(path: str | Path, *, profile: str = "generic") -> list[PdfPageText]:
     """Extract normalized page text from a PDF with deterministic cleanup."""
+    try:
+        import fitz
+    except ImportError as exc:  # pragma: no cover - dependency contract
+        raise RuntimeError(
+            "PyMuPDF is required for PDF extraction. Install with: pip install legal-chunking[pdf]"
+        ) from exc
+
     document = fitz.open(Path(path))
     pages: list[PdfPageText] = []
     try:

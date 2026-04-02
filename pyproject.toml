@@ -29,14 +29,16 @@ classifiers = [
   "Topic :: Software Development :: Libraries",
   "Topic :: Text Processing",
 ]
-dependencies = [
-  "PyMuPDF>=1.27.2.2",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
+  "PyMuPDF>=1.27.2.2",
   "pytest>=9.0.2",
   "ruff>=0.15.8",
+]
+pdf = [
+  "PyMuPDF>=1.27.2.2",
 ]
 
 [project.scripts]

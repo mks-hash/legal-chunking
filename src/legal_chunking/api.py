@@ -47,11 +47,16 @@ def chunk_text(
     )
 
 
-def chunk_pdf(path: str | Path, profile: str = "generic") -> Document:
+def chunk_pdf(
+    path: str | Path,
+    profile: str = "generic",
+    doc_kind: str | None = None,
+) -> Document:
     """Extract normalized PDF text and pass it through the chunking pipeline."""
     source = Path(path)
     return chunk_text(
         extract_pdf_text(source, profile=profile),
         profile=profile,
         source_name=source.name,
+        doc_kind=doc_kind,
     )
