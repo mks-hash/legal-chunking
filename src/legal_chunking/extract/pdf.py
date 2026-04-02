@@ -42,10 +42,27 @@ def _normalize_line_text(line: str) -> str:
 def _find_repeated_page_noise(page_lines: list[list[str]]) -> set[str]:
     counts: dict[str, int] = {}
     for lines in page_lines:
-        candidates = [line for line in (*lines[:3], *lines[-3:]) if len(line) >= 40]
+        candidates = [
+            line
+            for line in (*lines[:8], *lines[-4:])
+            if _is_repeated_noise_candidate(line)
+        ]
         for line in set(candidates):
             counts[line] = counts.get(line, 0) + 1
     return {line for line, count in counts.items() if count >= 3}
+
+
+def _is_repeated_noise_candidate(line: str) -> bool:
+    stripped = (line or "").strip()
+    if len(stripped) < 8:
+        return False
+    if _PAGE_NUMBER_LINE_RE.match(stripped):
+        return False
+    if _LIST_MARKER_RE.match(stripped):
+        return False
+    if _TOC_LEADER_RE.search(stripped):
+        return False
+    return True
 
 
 def _is_running_header_line(line: str) -> bool:
@@ -87,6 +104,13 @@ def _trim_leading_header_fragments(
     repeated_noise: set[str] | None = None,
 ) -> list[str]:
     start = 0
+    if (
+        lines
+        and len(lines[0].strip()) == 1
+        and lines[0].strip().isalpha()
+        and (repeated_noise or set())
+    ):
+        start = 1
     while start < len(lines) and start < 2 and _is_leading_header_fragment(
         lines[start],
         repeated_noise=repeated_noise,
