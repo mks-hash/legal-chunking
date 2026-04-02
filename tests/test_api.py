@@ -3,6 +3,7 @@ from pathlib import Path
 import fitz
 
 from legal_chunking import chunk_pdf, chunk_text
+from legal_chunking.extract.pdf import _normalize_page_raw_text
 from legal_chunking.hashing import compute_semantic_hash
 from legal_chunking.models import LegalUnitType
 from legal_chunking.normalize import normalize_chunk_text, normalize_extracted_text
@@ -150,6 +151,53 @@ def test_chunk_pdf_cleans_toc_noise_and_detects_uae_rulebook_sections(tmp_path: 
         "Section A. General principles",
         "Section B. Compliance management system",
     ]
+
+
+def test_normalize_page_raw_text_keeps_single_lowercase_content_line() -> None:
+    raw = "\n".join(
+        [
+            "a",
+            "Borrower obligations continue after this broken marker line.",
+        ]
+    )
+
+    normalized = _normalize_page_raw_text(raw, profile="generic")
+
+    assert normalized == "a Borrower obligations continue after this broken marker line."
+
+
+def test_normalize_page_raw_text_preserves_non_header_arabic_content() -> None:
+    raw = "\n".join(
+        [
+            "دبي market participants must comply with the applicable rulebook.",
+            "Article 1. General provisions",
+        ]
+    )
+
+    normalized = _normalize_page_raw_text(raw, profile="generic")
+
+    assert normalized.startswith("دبي market participants")
+    assert "Article 1. General provisions" in normalized
+
+
+def test_normalize_page_raw_text_keeps_enumerated_content_outside_heading_detection() -> None:
+    raw = "\n".join(
+        [
+            "Section A. General principles",
+            "1. Licensed entities must maintain effective controls.",
+            "2. Licensed entities must maintain independent oversight.",
+        ]
+    )
+
+    normalized = _normalize_page_raw_text(raw, profile="ae")
+
+    assert normalized == "\n".join(
+        [
+            "Section A. General principles",
+            "1. Licensed entities must maintain effective controls.",
+            "2. Licensed entities must maintain independent oversight.",
+        ]
+    )
 
 
 def test_normalize_extracted_text_preserves_paragraph_boundaries() -> None:
