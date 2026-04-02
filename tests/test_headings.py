@@ -37,6 +37,32 @@ def test_detect_numeric_heading_maps_to_section_when_top_level() -> None:
     assert heading.label == "Section 1. Scope and purpose"
 
 
+def test_detect_roman_heading_as_section() -> None:
+    heading = detect_heading("IV General provisions", profile="generic")
+
+    assert heading is not None
+    assert heading.kind == "section"
+    assert heading.label == "Section IV. General provisions"
+
+
+def test_detect_ru_article_heading_with_comma_list() -> None:
+    heading = detect_heading("Статья 1, 2. Общие положения", profile="ru")
+
+    assert heading is not None
+    assert heading.kind == "article"
+    assert heading.article_number == "1, 2"
+    assert heading.label == "Article 1, 2. Общие положения"
+
+
+def test_detect_ru_clause_heading_with_plural_marker() -> None:
+    heading = detect_heading("Пункты 1, 2. Общие правила", profile="ru")
+
+    assert heading is not None
+    assert heading.kind == "clause"
+    assert heading.paragraph_number == "1, 2"
+    assert heading.label == "Clause 1, 2. Общие правила"
+
+
 @pytest.mark.parametrize(
     "line",
     [
