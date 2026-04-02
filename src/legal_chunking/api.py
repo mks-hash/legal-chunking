@@ -6,7 +6,6 @@ from pathlib import Path
 
 from legal_chunking.chunk import build_chunks
 from legal_chunking.detect.sections import assemble_sections
-from legal_chunking.hashing import PIPELINE_VERSION
 from legal_chunking.models import Document
 from legal_chunking.normalize import normalize_extracted_text
 from legal_chunking.profiles import resolve_profile, select_chunk_fallback, select_chunk_policy
@@ -41,7 +40,6 @@ def chunk_text(
         profile=resolved_profile.code,
         language=resolved_profile.language,
         text=normalized_document,
-        pipeline_version=PIPELINE_VERSION,
         chunk_policy=chunk_policy,
         sections=sections,
         chunks=chunks,
@@ -58,7 +56,6 @@ def chunk_pdf(path: str | Path, profile: str = "generic") -> Document:
         profile=resolved_profile.code,
         language=resolved_profile.language,
         text="",
-        pipeline_version=PIPELINE_VERSION,
         chunk_policy=chunk_policy,
         chunks=[],
     )

@@ -15,7 +15,6 @@ def test_chunk_text_returns_document() -> None:
     assert document.chunks[0].chunk_method == "statute_unit"
     assert document.chunks[0].prev_chunk_id is None
     assert document.chunks[0].next_chunk_id is None
-    assert document.pipeline_version == "0.1.0"
     assert document.chunk_policy == "statute"
 
 
@@ -25,7 +24,6 @@ def test_chunk_pdf_returns_placeholder_document() -> None:
     assert document.source_name == "agreement.pdf"
     assert document.profile == "ru"
     assert document.chunks == []
-    assert document.pipeline_version == "0.1.0"
     assert document.chunk_policy == "statute"
 
 

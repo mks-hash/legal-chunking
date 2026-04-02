@@ -17,11 +17,6 @@ def normalize_chunk_text(text: str) -> str:
     return _WHITESPACE_RE.sub(" ", normalized)
 
 
-def normalize_embedding_text(text: str) -> str:
-    """Normalize embedding text using the same current chunk contract."""
-    return normalize_chunk_text(text)
-
-
 def normalize_extracted_text(text: str) -> str:
     """Apply format-generic extraction cleanup while preserving boundaries."""
     normalized = (text or "").replace("\r\n", "\n").replace("\r", "\n")
