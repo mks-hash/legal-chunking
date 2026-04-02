@@ -55,6 +55,12 @@ def test_unknown_doc_kind_uses_other_policy_before_code_default() -> None:
     assert document.chunk_policy == "default"
 
 
+def test_guidance_doc_kind_resolves_to_guidance_policy() -> None:
+    document = chunk_text("Guidance body.", profile="generic", doc_kind="guidance")
+
+    assert document.chunk_policy == "guidance"
+
+
 def test_numbering_family_aliases_are_asset_backed() -> None:
     aliases = get_numbering_family_aliases(profile="ru", family="article_like")
 
