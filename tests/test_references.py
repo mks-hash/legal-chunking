@@ -57,3 +57,27 @@ def test_normalize_normalized_refs_deduplicates_stably() -> None:
         "article=171.2|scheme=ru_article",
         "article=302|scheme=ru_article",
     ]
+
+
+def test_normalize_legal_text_preserves_plain_range_endpoints() -> None:
+    text = "пункт 1-20 статьи 5 АПК РФ"
+
+    assert normalize_legal_text(text, profile="ru") == "пункт 1-20 статьи 5 АПК РФ"
+
+
+def test_normalize_legal_text_repairs_ru_range_end_only_for_decimal_like_case() -> None:
+    text = "пунктов 1–61 статьи 101 НК РФ"
+
+    assert normalize_legal_text(text, profile="ru") == "пунктов 1–6.1 статьи 101 НК РФ"
+
+
+def test_normalize_legal_text_preserves_plain_three_digit_heading_prefix() -> None:
+    text = "100 АПК РФ"
+
+    assert normalize_legal_text(text, profile="ru") == "100 АПК РФ"
+
+
+def test_normalize_legal_text_repairs_ru_heading_decimal_when_bounded() -> None:
+    text = "291 АПК РФ"
+
+    assert normalize_legal_text(text, profile="ru") == "29.1 АПК РФ"

@@ -74,11 +74,11 @@ def _ru_numbering_rules(profile: str) -> dict[str, re.Pattern[str]]:
             rf"(?=(?:\s*(?:,|\)|;))?\s+{merged_article_followup_context})"
         ),
         "legal_range_end_merged_decimal_re": re.compile(
-            rf"(?i)\b((?:{point_keyword}|{subpoint_keyword}|{paragraph_keyword}|{part_keyword})\s+\d{{1,3}}\s*[–-]\s*)(?P<number>\d{{2,3}})"
+            rf"(?i)\b((?:{point_keyword}|{subpoint_keyword}|{paragraph_keyword}|{part_keyword})\s+\d{{1,3}}\s*[–-]\s*)(?P<number>\d{{2}})"
             rf"(?=\s+{article_keyword}|(?=\s+ст\.?))"
         ),
         "heading_merged_decimal_re": re.compile(
-            rf"(?im)^(?P<indent>\s*)(?P<number>\d{{4}})(?P<tail>\.?\s+(?:{legal_source_context}).*)$"
+            rf"(?im)^(?P<indent>\s*)(?P<number>\d{{3}})(?P<tail>\.?\s+(?:{legal_source_context}).*)$"
         ),
     }
 
@@ -139,10 +139,10 @@ def _repair_merged_article_decimals(text: str, *, profile: str) -> str:
         normalized,
     )
     return rules["legal_range_end_merged_decimal_re"].sub(
-        lambda match: _replace_with_decimal(
-            match.group(1),
-            match.group("number"),
-            base_len=len(match.group("number")) - 1,
+        lambda match: (
+            f"{match.group(1)}{match.group('number')[0]}.{match.group('number')[1]}"
+            if not match.group("number").endswith("0")
+            else match.group(0)
         ),
         normalized,
     )
@@ -155,9 +155,10 @@ def _repair_heading_merged_legal_decimals(text: str, *, profile: str) -> str:
     rules = _ru_numbering_rules(profile)
     return rules["heading_merged_decimal_re"].sub(
         lambda match: (
-            f"{match.group('indent')}"
-            f"{match.group('number')[:2]}.{match.group('number')[2:]}"
+            f"{match.group('indent')}{match.group('number')[:2]}.{match.group('number')[2]}"
             f"{match.group('tail')}"
+            if not match.group("number").endswith("0")
+            else match.group(0)
         ),
         text,
     )
