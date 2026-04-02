@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 
 from legal_chunking.profiles import resolve_profile
 
@@ -30,6 +31,9 @@ LABEL_PREFIX = {
 }
 
 
+GUIDANCE_BLOCKED_KINDS = {"article", "clause", "paragraph"}
+
+
 @dataclass(slots=True)
 class HeadingMatch:
     kind: str
@@ -38,6 +42,7 @@ class HeadingMatch:
     paragraph_number: str | None = None
 
 
+@lru_cache(maxsize=32)
 def compile_heading_patterns(profile: str) -> list[tuple[str, re.Pattern[str]]]:
     """Compile asset-backed heading patterns for one resolved profile."""
     payload = resolve_profile(profile).heading_patterns
@@ -72,9 +77,6 @@ def _is_admissible_numeric_heading(num_token: str, title: str, *, chunk_policy: 
     normalized_num = (num_token or "").strip()
     tail = (title or "").strip()
     if not normalized_num or not tail:
-        return False
-    has_explicit_heading_marker = normalized_num.endswith(".") or "." in normalized_num
-    if not has_explicit_heading_marker:
         return False
     if len(tail) > 120:
         return False
@@ -136,6 +138,8 @@ def detect_heading(
             depth = num.count(".")
             if depth == 0:
                 return HeadingMatch(kind="section", label=label)
+            if chunk_policy == "guidance":
+                return None
             if depth == 1:
                 return HeadingMatch(kind="article", label=label, article_number=num)
             return HeadingMatch(kind="clause", label=label, paragraph_number=num)
@@ -148,7 +152,7 @@ def detect_heading(
             label = f"Section {num}" + (f". {tail}" if tail else "")
             return HeadingMatch(kind="section", label=label)
 
-        if chunk_policy == "guidance" and section_type in {"article", "clause", "paragraph"}:
+        if chunk_policy == "guidance" and section_type in GUIDANCE_BLOCKED_KINDS:
             return None
 
         label = _format_label(section_type, match)
