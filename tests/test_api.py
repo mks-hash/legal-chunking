@@ -297,3 +297,38 @@ def test_chunk_text_keeps_realistic_guidance_fixture_points_as_primary_units() -
     assert len(point_chunks) == 1
     assert point_chunks[0].chunk_method == "guidance_point"
     assert point_chunks[0].source_case_number == "18-КГ23-155-К4"
+
+
+def test_chunk_text_splits_oversized_uae_rulebook_section_by_numbered_rules() -> None:
+    text = "\n".join(
+        [
+            "Part I - Compliance Management",
+            "A. General principles",
+            "1.",
+            " ".join(["Licensed entities must maintain effective controls."] * 20),
+            "2.",
+            " ".join(["Licensed entities must maintain independent oversight."] * 20),
+        ]
+    )
+
+    document = chunk_text(text, profile="ae", doc_kind="primary_legislation")
+
+    assert document.chunk_policy == "statute"
+    assert [chunk.chunk_method for chunk in document.chunks] == [
+        "statute_unit",
+        "statute_rule",
+        "statute_rule",
+    ]
+    assert [chunk.section_title for chunk in document.chunks] == [
+        "Part I. Compliance Management",
+        "Section A. General principles",
+        "Section A. General principles",
+    ]
+    assert [chunk.legal_unit_type for chunk in document.chunks] == [
+        None,
+        "rule_block",
+        "rule_block",
+    ]
+    assert [chunk.legal_unit_number for chunk in document.chunks] == [None, "1", "2"]
+    assert document.chunks[1].text.startswith("Section A. General principles 1.")
+    assert document.chunks[2].text.startswith("Section A. General principles 2.")
