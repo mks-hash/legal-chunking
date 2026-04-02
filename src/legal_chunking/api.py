@@ -7,6 +7,7 @@ from pathlib import Path
 from legal_chunking.hashing import PIPELINE_VERSION, compute_semantic_hash
 from legal_chunking.models import Chunk, Document
 from legal_chunking.normalize import normalize_chunk_text, normalize_extracted_text
+from legal_chunking.profiles import resolve_profile
 
 
 def _assign_chunk_adjacency(chunks: list[Chunk]) -> list[Chunk]:
@@ -26,6 +27,7 @@ def _assign_chunk_adjacency(chunks: list[Chunk]) -> list[Chunk]:
 
 def chunk_text(text: str, profile: str = "generic", source_name: str = "<memory>") -> Document:
     """Return one deterministic normalized chunk until structure parsing lands."""
+    resolved_profile = resolve_profile(profile)
     normalized_document = normalize_extracted_text(text)
     normalized_chunk = normalize_chunk_text(normalized_document)
     semantic_hash = compute_semantic_hash(normalized_chunk)
@@ -38,8 +40,8 @@ def chunk_text(text: str, profile: str = "generic", source_name: str = "<memory>
     _assign_chunk_adjacency([chunk])
     return Document(
         source_name=source_name,
-        profile=profile,
-        language=None,
+        profile=resolved_profile.code,
+        language=resolved_profile.language,
         text=normalized_document,
         pipeline_version=PIPELINE_VERSION,
         chunks=[chunk] if normalized_chunk else [],
@@ -49,10 +51,11 @@ def chunk_text(text: str, profile: str = "generic", source_name: str = "<memory>
 def chunk_pdf(path: str | Path, profile: str = "generic") -> Document:
     """Read a PDF path placeholder until PDF extraction is implemented."""
     source = Path(path)
+    resolved_profile = resolve_profile(profile)
     return Document(
         source_name=source.name,
-        profile=profile,
-        language=None,
+        profile=resolved_profile.code,
+        language=resolved_profile.language,
         text="",
         pipeline_version=PIPELINE_VERSION,
         chunks=[],
