@@ -11,10 +11,13 @@ class Section:
     kind: str
     title: str
     order: int
+    parent_section_id: str | None = None
+    path: list[str] = field(default_factory=list)
     article_number: str | None = None
     paragraph_number: str | None = None
     start_offset: int = 0
     end_offset: int = 0
+    text: str = ""
 
 
 @dataclass(slots=True)

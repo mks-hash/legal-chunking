@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from legal_chunking.detect.sections import assemble_sections
 from legal_chunking.hashing import PIPELINE_VERSION, compute_semantic_hash
-from legal_chunking.models import Chunk, Document
+from legal_chunking.models import Chunk, Document, Section
 from legal_chunking.normalize import normalize_chunk_text, normalize_extracted_text
 from legal_chunking.profiles import resolve_profile
 
@@ -25,26 +26,48 @@ def _assign_chunk_adjacency(chunks: list[Chunk]) -> list[Chunk]:
     return chunks
 
 
+def _build_fallback_chunks(sections: list[Section]) -> list[Chunk]:
+    chunks: list[Chunk] = []
+    order = 1
+    for section in sections:
+        normalized_chunk = normalize_chunk_text(section.text)
+        if not normalized_chunk:
+            continue
+        semantic_hash = compute_semantic_hash(normalized_chunk)
+        chunks.append(
+            Chunk(
+                chunk_id=f"chunk-{semantic_hash[:12]}",
+                text=normalized_chunk,
+                order=order,
+                section_id=section.section_id,
+                section_title=section.title,
+                article_number=section.article_number,
+                paragraph_number=section.paragraph_number,
+                semantic_hash=semantic_hash,
+            )
+        )
+        order += 1
+    return _assign_chunk_adjacency(chunks)
+
+
 def chunk_text(text: str, profile: str = "generic", source_name: str = "<memory>") -> Document:
-    """Return one deterministic normalized chunk until structure parsing lands."""
+    """Return deterministic sections and fallback chunks for normalized text input."""
     resolved_profile = resolve_profile(profile)
     normalized_document = normalize_extracted_text(text)
-    normalized_chunk = normalize_chunk_text(normalized_document)
-    semantic_hash = compute_semantic_hash(normalized_chunk)
-    chunk = Chunk(
-        chunk_id=f"chunk-{semantic_hash[:12]}",
-        text=normalized_chunk,
-        order=1,
-        semantic_hash=semantic_hash,
+    sections = assemble_sections(
+        normalized_document,
+        profile=resolved_profile.code,
+        source_name=source_name,
     )
-    _assign_chunk_adjacency([chunk])
+    chunks = _build_fallback_chunks(sections)
     return Document(
         source_name=source_name,
         profile=resolved_profile.code,
         language=resolved_profile.language,
         text=normalized_document,
         pipeline_version=PIPELINE_VERSION,
-        chunks=[chunk] if normalized_chunk else [],
+        sections=sections,
+        chunks=chunks,
     )
 
 
