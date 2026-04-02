@@ -22,7 +22,14 @@ def _make_section_id(source_name: str, path: list[str], occurrence: int) -> str:
 
 
 def _finalize_section(section: Section, text_parts: list[str], *, end_offset: int) -> None:
-    section.text = "\n".join(part for part in text_parts if part).strip()
+    normalized_parts: list[str] = []
+    for part in text_parts:
+        if part:
+            normalized_parts.append(part)
+            continue
+        if normalized_parts and normalized_parts[-1] != "":
+            normalized_parts.append("")
+    section.text = "\n".join(normalized_parts).strip()
     section.end_offset = max(section.start_offset, end_offset)
 
 
@@ -38,8 +45,8 @@ def assemble_sections(
     if not normalized:
         return []
 
-    lines = [line.strip() for line in normalized.split("\n") if line.strip()]
-    if not lines:
+    raw_lines = normalized.splitlines(keepends=True)
+    if not raw_lines:
         return []
 
     sections: list[Section] = []
@@ -95,18 +102,22 @@ def assemble_sections(
     stack.append(root)
     text_parts_by_id[root.section_id] = []
 
-    for line in lines:
-        line_offset = normalized.find(line, search_offset)
-        if line_offset < 0:
-            line_offset = search_offset
-        search_offset = line_offset + len(line)
+    for raw_line in raw_lines:
+        line = raw_line.rstrip("\n")
+        line_offset = search_offset
+        search_offset += len(raw_line)
+        stripped = line.strip()
+        if not stripped:
+            current = stack[-1]
+            text_parts_by_id[current.section_id].append("")
+            continue
 
-        heading = detect_heading(line, profile=profile, chunk_policy=chunk_policy)
+        heading = detect_heading(stripped, profile=profile, chunk_policy=chunk_policy)
         if heading is not None:
             start_new_section(heading, line_offset)
 
         current = stack[-1]
-        text_parts_by_id[current.section_id].append(line)
+        text_parts_by_id[current.section_id].append(stripped)
         current.end_offset = line_offset + len(line)
 
     for section in sections:
