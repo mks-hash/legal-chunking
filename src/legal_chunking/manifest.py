@@ -20,11 +20,27 @@ class ProfileAssetPointers:
 
 
 @dataclass(slots=True)
+class ReferenceDocFamily:
+    id: str
+    kind: str
+    aliases: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ProfileReferenceConfig:
+    enabled: bool
+    require_doc_family: bool = False
+    match_mode: str = "family_first"
+    doc_families: list[ReferenceDocFamily] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class ProfileManifest:
     code: str
     enabled: bool
     aliases: list[str] = field(default_factory=list)
     language: str | None = None
+    reference: ProfileReferenceConfig | None = None
     assets: ProfileAssetPointers | None = None
 
 
@@ -66,6 +82,31 @@ def _parse_manifest(payload: dict[str, Any]) -> AssetManifest:
         assets = entry.get("assets", {})
         if not isinstance(assets, dict):
             raise ValueError(f"Manifest assets entry must be an object for {code}")
+        raw_reference = entry.get("reference")
+        reference: ProfileReferenceConfig | None = None
+        if raw_reference is not None:
+            if not isinstance(raw_reference, dict):
+                raise ValueError(f"Manifest reference entry must be an object for {code}")
+            raw_doc_families = raw_reference.get("doc_families", [])
+            if not isinstance(raw_doc_families, list):
+                raise ValueError(f"Manifest doc_families entry must be a list for {code}")
+            doc_families: list[ReferenceDocFamily] = []
+            for item in raw_doc_families:
+                if not isinstance(item, dict):
+                    raise ValueError(f"Manifest doc_family entry must be an object for {code}")
+                doc_families.append(
+                    ReferenceDocFamily(
+                        id=str(item.get("id") or "").strip(),
+                        kind=str(item.get("kind") or "").strip(),
+                        aliases=_normalize_aliases(list(item.get("aliases", []))),
+                    )
+                )
+            reference = ProfileReferenceConfig(
+                enabled=bool(raw_reference.get("enabled", False)),
+                require_doc_family=bool(raw_reference.get("require_doc_family", False)),
+                match_mode=str(raw_reference.get("match_mode") or "family_first").strip().lower(),
+                doc_families=doc_families,
+            )
         pointers = ProfileAssetPointers(
             heading_patterns=str(assets.get("heading_patterns") or ""),
             numbering_markers=str(assets.get("numbering_markers") or ""),
@@ -76,6 +117,7 @@ def _parse_manifest(payload: dict[str, Any]) -> AssetManifest:
             enabled=bool(entry.get("enabled", False)),
             aliases=_normalize_aliases(list(entry.get("aliases", []))),
             language=str(entry.get("language")).strip().lower() if entry.get("language") else None,
+            reference=reference,
             assets=pointers,
         )
 

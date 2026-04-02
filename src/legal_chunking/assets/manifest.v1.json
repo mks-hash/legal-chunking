@@ -16,6 +16,17 @@
       "enabled": true,
       "aliases": ["ru", "ru-ru", "russia", "россия"],
       "language": "ru",
+      "reference": {
+        "enabled": true,
+        "require_doc_family": true,
+        "match_mode": "family_first",
+        "doc_families": [
+          {"id": "gk_rf", "kind": "code", "aliases": ["ГК РФ", "Гражданский кодекс РФ"]},
+          {"id": "apk_rf", "kind": "code", "aliases": ["АПК РФ", "Арбитражный процессуальный кодекс РФ"]},
+          {"id": "gpk_rf", "kind": "code", "aliases": ["ГПК РФ", "Гражданский процессуальный кодекс РФ"]},
+          {"id": "nk_rf", "kind": "code", "aliases": ["НК РФ", "Налоговый кодекс РФ"]}
+        ]
+      },
       "assets": {
         "heading_patterns": "heading_patterns/ru.v1.json",
         "numbering_markers": "numbering_markers/ru.v1.json",
@@ -26,6 +37,16 @@
       "enabled": true,
       "aliases": ["us", "usa", "united states", "u.s."],
       "language": "en",
+      "reference": {
+        "enabled": true,
+        "require_doc_family": true,
+        "match_mode": "family_first",
+        "doc_families": [
+          {"id": "usc", "kind": "code", "aliases": ["U.S.C.", "USC", "United States Code"]},
+          {"id": "cfr", "kind": "secondary_legislation", "aliases": ["CFR", "Code of Federal Regulations"]},
+          {"id": "frcp", "kind": "procedure_rules", "aliases": ["FRCP", "Federal Rules of Civil Procedure"]}
+        ]
+      },
       "assets": {
         "heading_patterns": "heading_patterns/us.v1.json",
         "numbering_markers": "numbering_markers/us.v1.json",
@@ -36,6 +57,16 @@
       "enabled": true,
       "aliases": ["eu", "european union"],
       "language": "en",
+      "reference": {
+        "enabled": true,
+        "require_doc_family": false,
+        "match_mode": "family_first",
+        "doc_families": [
+          {"id": "gdpr", "kind": "regulation", "aliases": ["GDPR", "General Data Protection Regulation"]},
+          {"id": "eu_regulation", "kind": "regulation", "aliases": ["Regulation (EU)", "EU Regulation"]},
+          {"id": "eu_directive", "kind": "directive", "aliases": ["Directive (EU)", "EU Directive"]}
+        ]
+      },
       "assets": {
         "heading_patterns": "heading_patterns/eu.v1.json",
         "numbering_markers": "numbering_markers/eu.v1.json",
