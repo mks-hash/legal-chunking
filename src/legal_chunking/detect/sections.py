@@ -10,8 +10,8 @@ from legal_chunking.detect.guidance import (
     split_guidance_blocks,
 )
 from legal_chunking.detect.headings import HeadingMatch, detect_heading
-from legal_chunking.models import Section
-from legal_chunking.tracing import TraceCollector
+from legal_chunking.models import LegalUnitType, Section
+from legal_chunking.tracing import TraceCollector, TraceStage
 
 LEVEL_ORDER = ["document_root", "part", "chapter", "section", "article", "clause", "paragraph"]
 
@@ -134,6 +134,7 @@ def assemble_sections(
         if heading is not None:
             if trace is not None:
                 trace.emit(
+                    TraceStage.DETECT,
                     "heading_detected",
                     kind=heading.kind,
                     label=heading.label,
@@ -208,7 +209,11 @@ def _assemble_guidance_sections(
             root.text = block.text
             root.end_offset = end_offset
             if trace is not None:
-                trace.emit("guidance_preamble_detected", char_length=len(block.text))
+                trace.emit(
+                    TraceStage.ASSEMBLE,
+                    "guidance_preamble_detected",
+                    char_length=len(block.text),
+                )
             continue
 
         if block.method != "guidance_point":
@@ -227,6 +232,7 @@ def _assemble_guidance_sections(
         metadata = extract_guidance_point_metadata(block.text, point_number=block.point_number)
         if trace is not None:
             trace.emit(
+                TraceStage.ASSEMBLE,
                 "guidance_point_detected",
                 point_number=metadata.point_number,
                 has_case_reference=metadata.source_case_reference is not None,
@@ -241,7 +247,7 @@ def _assemble_guidance_sections(
                 parent_section_id=root.section_id,
                 path=path,
                 point_number=metadata.point_number,
-                legal_unit_type="guidance_point",
+                legal_unit_type=LegalUnitType.GUIDANCE_POINT,
                 legal_unit_number=metadata.point_number,
                 source_case_reference=metadata.source_case_reference,
                 source_case_number=metadata.source_case_number,

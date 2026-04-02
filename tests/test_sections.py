@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from legal_chunking import assemble_sections, chunk_text
+from legal_chunking.models import LegalUnitType
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -102,7 +103,7 @@ def test_assemble_sections_builds_guidance_point_sections_from_ru_review_fixture
     assert sections[0].section_type == "document_root"
     assert sections[0].text == "Обзор судебной практики по делам о защите прав потребителей."
     assert sections[1].section_type == "review_point"
-    assert sections[1].legal_unit_type == "guidance_point"
+    assert sections[1].legal_unit_type == LegalUnitType.GUIDANCE_POINT
     assert sections[1].point_number == "17"
     assert sections[1].legal_unit_number == "17"
     assert sections[1].source_case_reference is not None

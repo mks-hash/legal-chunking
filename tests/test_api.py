@@ -4,7 +4,9 @@ import fitz
 
 from legal_chunking import chunk_pdf, chunk_text
 from legal_chunking.hashing import compute_semantic_hash
+from legal_chunking.models import LegalUnitType
 from legal_chunking.normalize import normalize_chunk_text, normalize_extracted_text
+from legal_chunking.tracing import TraceStage
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -245,7 +247,7 @@ def test_chunk_text_builds_guidance_point_chunks_from_review_fixture() -> None:
     assert document.chunks[1].chunk_method == "guidance_point"
     assert document.chunks[1].section_type == "review_point"
     assert document.chunks[1].point_number == "17"
-    assert document.chunks[1].legal_unit_type == "guidance_point"
+    assert document.chunks[1].legal_unit_type == LegalUnitType.GUIDANCE_POINT
     assert document.chunks[1].legal_unit_number == "17"
     assert document.chunks[1].source_case_number == "18-КГ23-155-К4"
     assert document.chunks[1].source_case_court == "Верховный Суд РФ"
@@ -272,7 +274,7 @@ def test_chunk_text_keeps_oversized_guidance_point_as_single_chunk() -> None:
     ]
     point_chunks = [chunk for chunk in document.chunks if chunk.section_title == "Point 17"]
     assert len(point_chunks) == 1
-    assert all(chunk.legal_unit_type == "guidance_point" for chunk in point_chunks)
+    assert all(chunk.legal_unit_type == LegalUnitType.GUIDANCE_POINT for chunk in point_chunks)
     assert all(chunk.point_number == "17" for chunk in point_chunks)
 
 
@@ -327,8 +329,8 @@ def test_chunk_text_splits_oversized_uae_rulebook_section_by_numbered_rules() ->
     ]
     assert [chunk.legal_unit_type for chunk in document.chunks] == [
         None,
-        "rule_block",
-        "rule_block",
+        LegalUnitType.RULE_BLOCK,
+        LegalUnitType.RULE_BLOCK,
     ]
     assert [chunk.legal_unit_number for chunk in document.chunks] == [None, "1", "2"]
     assert document.chunks[1].text.startswith("Section A. General principles 1.")
@@ -353,8 +355,8 @@ def test_chunk_text_splits_definition_schedule_into_definition_entries() -> None
         "definition_entry",
     ]
     assert [chunk.legal_unit_type for chunk in document.chunks] == [
-        "definition_entry",
-        "definition_entry",
+        LegalUnitType.DEFINITION_ENTRY,
+        LegalUnitType.DEFINITION_ENTRY,
     ]
     assert [chunk.definition_term for chunk in document.chunks] == [
         "Client Money",
@@ -381,11 +383,14 @@ def test_chunk_text_trace_reports_structure_and_chunk_decisions() -> None:
     assert document.trace is not None
     event_types = [event.type for event in document.trace.events]
     assert event_types[:2] == ["chunk_policy_selected", "document_normalized"]
+    assert document.trace.events[0].stage == TraceStage.CHUNK
+    assert document.trace.events[1].stage == TraceStage.NORMALIZE
     assert "heading_detected" in event_types
     assert "rule_block_split" in event_types
     rule_split_event = next(
         event for event in document.trace.events if event.type == "rule_block_split"
     )
+    assert rule_split_event.stage == TraceStage.CHUNK
     assert rule_split_event.data == {
         "section": "Section A. General principles",
         "count": 2,

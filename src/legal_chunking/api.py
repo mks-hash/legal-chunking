@@ -10,7 +10,7 @@ from legal_chunking.extract.pdf import extract_pdf_text
 from legal_chunking.models import Document
 from legal_chunking.normalize import normalize_extracted_text
 from legal_chunking.profiles import resolve_profile, select_chunk_fallback, select_chunk_policy
-from legal_chunking.tracing import TraceCollector
+from legal_chunking.tracing import TraceCollector, TraceStage
 
 
 def chunk_text(
@@ -28,12 +28,14 @@ def chunk_text(
     trace_collector = TraceCollector() if trace else None
     if trace_collector is not None:
         trace_collector.emit(
+            TraceStage.CHUNK,
             "chunk_policy_selected",
             profile=resolved_profile.code,
             doc_kind=doc_kind,
             policy=chunk_policy,
         )
         trace_collector.emit(
+            TraceStage.NORMALIZE,
             "document_normalized",
             source_name=source_name,
             char_length=len(normalized_document),
