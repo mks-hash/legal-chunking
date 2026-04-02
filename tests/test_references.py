@@ -258,6 +258,20 @@ def test_extract_references_parses_compact_ru_marker_number_form() -> None:
     ]
 
 
+def test_extract_references_skips_eu_matches_without_doc_family_when_required() -> None:
+    refs = extract_references("Recital 10 applies here.", profile="eu")
+
+    assert refs == []
+
+
+def test_extract_references_parses_eu_match_with_doc_family_context() -> None:
+    refs = extract_references("Recital 10 GDPR applies here.", profile="eu")
+
+    assert [(ref.scheme, ref.article_number, ref.doc_family) for ref in refs] == [
+        ("recital", "10", "gdpr"),
+    ]
+
+
 def test_extract_references_rejects_compact_ru_marker_inside_unrelated_word() -> None:
     refs = extract_references("ГОСТ.5 ГК РФ", profile="ru")
 

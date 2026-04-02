@@ -138,3 +138,10 @@ def test_resolve_doc_family_supports_expanded_eu_manifest_aliases() -> None:
 
     assert family is not None
     assert family.id == "cjeu"
+
+
+def test_eu_manifest_requires_doc_family_for_reference_parsing() -> None:
+    manifest = load_manifest()
+
+    assert manifest.profiles["eu"].reference is not None
+    assert manifest.profiles["eu"].reference.require_doc_family is True

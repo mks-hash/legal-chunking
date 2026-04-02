@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from legal_chunking.manifest import ReferenceDocFamily
+from legal_chunking.manifest import ReferenceDocFamily, load_manifest
 from legal_chunking.numbering_markers import get_numbering_family_aliases
 from legal_chunking.profiles import (
     find_doc_family_alias_hits,
@@ -330,6 +330,12 @@ def extract_references(
     doc_family: str | None = None,
 ) -> list[ParsedReference]:
     resolved_profile = resolve_profile(profile)
+    reference_config = load_manifest().profiles[resolved_profile.code].reference
+    require_doc_family = bool(
+        reference_config is not None
+        and reference_config.enabled
+        and reference_config.require_doc_family
+    )
     inherited_family = doc_family or None
     inherited_family_id = (
         inherited_family.id
@@ -346,6 +352,8 @@ def extract_references(
     )
 
     def append_reference(ref: ParsedReference) -> None:
+        if require_doc_family and not ref.doc_family:
+            return
         key = (
             ref.scheme,
             ref.article_number,
