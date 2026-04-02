@@ -12,6 +12,7 @@ ALLOWED_SECTION_TYPES = {
     "chapter",
     "part",
     "section",
+    "alpha_heading",
     "article",
     "clause",
     "paragraph",
@@ -132,6 +133,20 @@ def _is_admissible_symbolic_heading(title: str, *, chunk_policy: str) -> bool:
     return True
 
 
+def _is_admissible_structural_heading(
+    section_type: str,
+    title: str,
+    *,
+    chunk_policy: str,
+) -> bool:
+    if section_type not in {"part", "chapter", "section", "schedule"}:
+        return True
+    tail = (title or "").strip()
+    if not tail:
+        return True
+    return _is_admissible_symbolic_heading(tail, chunk_policy=chunk_policy)
+
+
 def detect_heading(
     line: str,
     *,
@@ -172,6 +187,18 @@ def detect_heading(
         if section_type == "roman_heading":
             num = match.groupdict().get("num") or ""
             tail = match.groupdict().get("title") or ""
+            if num != num.upper():
+                return None
+            if not _is_admissible_symbolic_heading(tail, chunk_policy=chunk_policy):
+                return None
+            label = f"Section {num}" + (f". {tail}" if tail else "")
+            return HeadingMatch(kind="section", label=label)
+
+        if section_type == "alpha_heading":
+            num = match.groupdict().get("num") or ""
+            tail = match.groupdict().get("title") or ""
+            if num != num.upper():
+                return None
             if not _is_admissible_symbolic_heading(tail, chunk_policy=chunk_policy):
                 return None
             label = f"Section {num}" + (f". {tail}" if tail else "")
@@ -179,6 +206,14 @@ def detect_heading(
 
         if chunk_policy == "guidance" and section_type in GUIDANCE_BLOCKED_KINDS:
             return None
+
+        title = match.groupdict().get("title") or ""
+        if not _is_admissible_structural_heading(
+            section_type,
+            title,
+            chunk_policy=chunk_policy,
+        ):
+            continue
 
         label = _format_label(section_type, match)
         if section_type == "schedule":

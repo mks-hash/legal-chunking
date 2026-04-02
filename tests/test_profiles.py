@@ -16,7 +16,7 @@ def test_load_manifest_exposes_enabled_profiles() -> None:
     manifest = load_manifest()
 
     assert manifest.version == 1
-    assert manifest.enabled_profiles() == {"generic", "ru", "us", "eu"}
+    assert manifest.enabled_profiles() == {"generic", "ru", "us", "eu", "ae"}
 
 
 def test_resolve_profile_by_alias_returns_canonical_code() -> None:
@@ -49,6 +49,13 @@ def test_chunk_pdf_uses_resolved_profile_metadata(tmp_path: Path) -> None:
     document = chunk_pdf(pdf_path, profile="european union")
 
     assert document.profile == "eu"
+    assert document.language == "en"
+
+
+def test_chunk_text_uses_uae_alias_resolution() -> None:
+    document = chunk_text("Article 1. Scope", profile="u.a.e.")
+
+    assert document.profile == "ae"
     assert document.language == "en"
 
 
@@ -138,6 +145,13 @@ def test_resolve_doc_family_supports_expanded_eu_manifest_aliases() -> None:
 
     assert family is not None
     assert family.id == "cjeu"
+
+
+def test_resolve_doc_family_supports_uae_manifest_aliases() -> None:
+    family = resolve_doc_family("ae", "This Rulebook is issued by VARA.")
+
+    assert family is not None
+    assert family.id == "vara"
 
 
 def test_eu_manifest_requires_doc_family_for_reference_parsing() -> None:

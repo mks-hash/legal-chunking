@@ -272,6 +272,17 @@ def test_extract_references_parses_eu_match_with_doc_family_context() -> None:
     ]
 
 
+def test_extract_references_parses_ae_article_with_doc_family_context() -> None:
+    refs = extract_references(
+        "Article 5 VARA applies here.",
+        profile="ae",
+    )
+
+    assert [(ref.scheme, ref.article_number, ref.doc_family) for ref in refs] == [
+        ("article", "5", "vara"),
+    ]
+
+
 def test_extract_references_rejects_compact_ru_marker_inside_unrelated_word() -> None:
     refs = extract_references("ГОСТ.5 ГК РФ", profile="ru")
 
