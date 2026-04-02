@@ -3,8 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 
 from legal_chunking.tracing import TraceReport
+
+
+class LegalUnitType(StrEnum):
+    SECTION = "section"
+    RULE_BLOCK = "rule_block"
+    REVIEW_POINT = "review_point"
+    GUIDANCE_POINT = "guidance_point"
+    DEFINITION_ENTRY = "definition_entry"
+    SCHEDULE = "schedule"
+    PARAGRAPH = "paragraph"
 
 
 @dataclass(slots=True)
@@ -19,7 +30,7 @@ class Section:
     article_number: str | None = None
     paragraph_number: str | None = None
     point_number: str | None = None
-    legal_unit_type: str | None = None
+    legal_unit_type: LegalUnitType | None = None
     legal_unit_number: str | None = None
     source_case_reference: str | None = None
     source_case_number: str | None = None
@@ -44,7 +55,7 @@ class Chunk:
     article_number: str | None = None
     paragraph_number: str | None = None
     point_number: str | None = None
-    legal_unit_type: str | None = None
+    legal_unit_type: LegalUnitType | None = None
     legal_unit_number: str | None = None
     source_case_reference: str | None = None
     source_case_number: str | None = None
