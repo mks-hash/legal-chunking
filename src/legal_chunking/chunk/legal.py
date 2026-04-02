@@ -23,8 +23,8 @@ def build_chunks(
     selected_sections = _select_sections(sections, chunk_policy=chunk_policy)
     chunks: list[Chunk] = []
     for section in selected_sections:
-        parts = _split_section_text(
-            section.text,
+        parts = _split_section(
+            section,
             chunk_policy=chunk_policy,
             fallback=fallback,
         )
@@ -65,8 +65,16 @@ def _append_chunk(
             chunk_method=chunk_method,
             section_id=section.section_id,
             section_title=section.title,
+            section_type=section.section_type or section.kind,
             article_number=section.article_number,
             paragraph_number=section.paragraph_number,
+            point_number=section.point_number,
+            legal_unit_type=section.legal_unit_type,
+            legal_unit_number=section.legal_unit_number,
+            source_case_reference=section.source_case_reference,
+            source_case_number=section.source_case_number,
+            source_case_date=section.source_case_date,
+            source_case_court=section.source_case_court,
             semantic_hash=compute_semantic_hash(normalized_text),
         )
     )
@@ -84,18 +92,28 @@ def _select_sections(sections: list[Section], *, chunk_policy: str) -> list[Sect
     return [section for section in sections if (section.text or "").strip()]
 
 
-def _split_section_text(
-    text: str,
+def _split_section(
+    section: Section,
     *,
     chunk_policy: str,
     fallback: ChunkFallbackConfig,
 ) -> list[tuple[str, str]]:
-    normalized = (text or "").strip()
+    normalized = (section.text or "").strip()
     if not normalized:
         return []
 
     paragraphs = _split_paragraphs(normalized)
     if chunk_policy == "guidance":
+        is_guidance_point = (
+            (section.legal_unit_type or "") == "guidance_point"
+            or (section.section_type or "") == "review_point"
+        )
+        if is_guidance_point:
+            if len(normalized) <= fallback.max_chars:
+                return [("guidance_point", normalized)]
+            return _split_guidance_point(normalized, paragraphs, fallback)
+        if section.kind == "document_root":
+            return _split_paragraph_units(paragraphs, fallback, base_method="guidance_preamble")
         return _split_paragraph_units(paragraphs, fallback, base_method="guidance_block")
     if chunk_policy == "case_law":
         return _split_paragraph_units(paragraphs, fallback, base_method="case_law_paragraph")
@@ -154,6 +172,23 @@ def _split_paragraph_units(
             chunks.extend(_split_by_chars(paragraph, fallback))
             continue
         chunks.append((base_method, paragraph))
+    return chunks
+
+
+def _split_guidance_point(
+    text: str,
+    paragraphs: list[str],
+    fallback: ChunkFallbackConfig,
+) -> list[tuple[str, str]]:
+    if len(text) <= fallback.max_chars:
+        return [("guidance_point", text)]
+
+    chunks: list[tuple[str, str]] = []
+    for paragraph in paragraphs:
+        if len(paragraph) > fallback.max_chars:
+            chunks.extend(_split_by_chars(paragraph, fallback))
+            continue
+        chunks.append(("guidance_point_paragraph", paragraph))
     return chunks
 
 

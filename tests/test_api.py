@@ -1,6 +1,10 @@
+from pathlib import Path
+
 from legal_chunking import chunk_pdf, chunk_text
 from legal_chunking.hashing import compute_semantic_hash
 from legal_chunking.normalize import normalize_chunk_text, normalize_extracted_text
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def test_chunk_text_returns_document() -> None:
@@ -76,7 +80,7 @@ def test_chunk_text_splits_guidance_root_into_multiple_chunks() -> None:
         "Second paragraph.",
         "Third paragraph.",
     ]
-    assert all(chunk.chunk_method == "guidance_block" for chunk in document.chunks)
+    assert all(chunk.chunk_method == "guidance_preamble" for chunk in document.chunks)
 
 
 def test_chunk_text_uses_char_fallback_for_oversized_paragraphs() -> None:
@@ -106,3 +110,49 @@ def test_chunk_text_preserves_preamble_before_first_heading() -> None:
         "Article 1. General provisions",
     ]
     assert document.chunks[0].text == "Introductory preamble text."
+
+
+def test_chunk_text_builds_guidance_point_chunks_from_review_fixture() -> None:
+    text = (FIXTURES_DIR / "review_ru_guidance.txt").read_text(encoding="utf-8")
+
+    document = chunk_text(text, profile="ru", doc_kind="court_guidance")
+
+    assert document.chunk_policy == "guidance"
+    assert [chunk.section_title for chunk in document.chunks] == [
+        "Document",
+        "Point 17",
+        "Point 18",
+    ]
+    assert document.chunks[1].chunk_method == "guidance_point"
+    assert document.chunks[1].section_type == "review_point"
+    assert document.chunks[1].point_number == "17"
+    assert document.chunks[1].legal_unit_type == "guidance_point"
+    assert document.chunks[1].legal_unit_number == "17"
+    assert document.chunks[1].source_case_number == "18-КГ23-155-К4"
+    assert document.chunks[1].source_case_court == "Верховный Суд РФ"
+
+
+def test_chunk_text_splits_oversized_guidance_point_by_paragraphs() -> None:
+    oversized_text = "\n".join(
+        [
+            "Обзор судебной практики.",
+            "",
+            "17. Позиция суда о защите потребителя.",
+            "A" * 700,
+            "",
+            "B" * 700,
+        ]
+    )
+
+    document = chunk_text(oversized_text, profile="ru", doc_kind="court_guidance")
+
+    assert document.chunk_policy == "guidance"
+    assert [chunk.chunk_method for chunk in document.chunks] == [
+        "guidance_preamble",
+        "guidance_point_paragraph",
+        "guidance_point_paragraph",
+    ]
+    point_chunks = [chunk for chunk in document.chunks if chunk.section_title == "Point 17"]
+    assert len(point_chunks) == 2
+    assert all(chunk.legal_unit_type == "guidance_point" for chunk in point_chunks)
+    assert all(chunk.point_number == "17" for chunk in point_chunks)

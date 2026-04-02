@@ -11,10 +11,18 @@ class Section:
     kind: str
     title: str
     order: int
+    section_type: str | None = None
     parent_section_id: str | None = None
     path: list[str] = field(default_factory=list)
     article_number: str | None = None
     paragraph_number: str | None = None
+    point_number: str | None = None
+    legal_unit_type: str | None = None
+    legal_unit_number: str | None = None
+    source_case_reference: str | None = None
+    source_case_number: str | None = None
+    source_case_date: str | None = None
+    source_case_court: str | None = None
     start_offset: int = 0
     end_offset: int = 0
     text: str = ""
@@ -29,8 +37,16 @@ class Chunk:
     page: int | None = None
     section_id: str | None = None
     section_title: str | None = None
+    section_type: str | None = None
     article_number: str | None = None
     paragraph_number: str | None = None
+    point_number: str | None = None
+    legal_unit_type: str | None = None
+    legal_unit_number: str | None = None
+    source_case_reference: str | None = None
+    source_case_number: str | None = None
+    source_case_date: str | None = None
+    source_case_court: str | None = None
     semantic_hash: str = ""
     prev_chunk_id: str | None = None
     next_chunk_id: str | None = None
