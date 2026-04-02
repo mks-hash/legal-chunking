@@ -5,6 +5,7 @@
     "primary_legislation": "statute",
     "secondary_legislation": "statute",
     "procedure_rules": "statute",
+    "guidance": "guidance",
     "case_law": "case_law",
     "commentary": "guidance",
     "other": "default"
