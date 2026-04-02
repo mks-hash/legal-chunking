@@ -13,8 +13,14 @@ from legal_chunking.numbering_markers import (
     get_numbering_aliases,
     get_numbering_family_aliases,
 )
-from legal_chunking.profiles import resolve_profile, select_chunk_fallback, select_chunk_policy
+from legal_chunking.profiles import (
+    resolve_doc_family,
+    resolve_profile,
+    select_chunk_fallback,
+    select_chunk_policy,
+)
 from legal_chunking.reference_context import ReferenceContext, ReferenceContextResolver
+from legal_chunking.reference_parser import ParsedReference, extract_references, normalize_reference
 from legal_chunking.references import (
     normalize_article_number,
     normalize_legal_query_text,
@@ -28,6 +34,7 @@ __all__ = [
     "Chunk",
     "Document",
     "HeadingMatch",
+    "ParsedReference",
     "ReferenceContext",
     "ReferenceContextResolver",
     "Section",
@@ -37,6 +44,7 @@ __all__ = [
     "compile_heading_patterns",
     "compute_semantic_hash",
     "detect_heading",
+    "extract_references",
     "get_numbering_aliases",
     "get_numbering_family_aliases",
     "chunk_pdf",
@@ -50,7 +58,9 @@ __all__ = [
     "normalize_normalized_ref",
     "normalize_normalized_refs",
     "normalize_numeric_scripts",
+    "normalize_reference",
     "resolve_profile",
+    "resolve_doc_family",
     "select_chunk_fallback",
     "select_chunk_policy",
 ]

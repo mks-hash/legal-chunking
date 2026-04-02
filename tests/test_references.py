@@ -1,11 +1,13 @@
 from legal_chunking import (
     ReferenceContextResolver,
+    extract_references,
     normalize_article_number,
     normalize_legal_query_text,
     normalize_legal_text,
     normalize_normalized_ref,
     normalize_normalized_refs,
     normalize_numeric_scripts,
+    normalize_reference,
 )
 
 
@@ -120,3 +122,61 @@ def test_normalize_legal_text_preserves_zero_ending_chapter_numbers() -> None:
     text = "глава 100 АПК РФ"
 
     assert normalize_legal_text(text, profile="ru") == "глава 100 АПК РФ"
+
+
+def test_extract_references_parses_ru_article_context() -> None:
+    refs = extract_references("пункт 3 статьи 450 ГК РФ", profile="ru")
+
+    assert len(refs) == 1
+    assert refs[0].scheme == "ru_article"
+    assert refs[0].article_number == "450"
+    assert refs[0].paragraph_number == "3"
+    assert refs[0].doc_family == "gk_rf"
+
+
+def test_extract_references_parses_usc_section_with_doc_family_narrowing() -> None:
+    refs = extract_references("15 U.S.C. § 78j", profile="us", doc_family="usc")
+
+    assert len(refs) == 1
+    assert refs[0].scheme == "section"
+    assert refs[0].article_number == "78j"
+    assert refs[0].doc_family == "usc"
+
+
+def test_extract_references_us_doc_family_narrowing_excludes_other_family_matches() -> None:
+    refs = extract_references(
+        "15 U.S.C. § 78j and 17 C.F.R. § 240.10b-5",
+        profile="us",
+        doc_family="usc",
+    )
+
+    assert [(ref.article_number, ref.doc_family) for ref in refs] == [("78j", "usc")]
+
+
+def test_extract_references_resolves_doc_family_per_match() -> None:
+    refs = extract_references(
+        "15 U.S.C. § 78j and 17 C.F.R. § 240.10b-5",
+        profile="us",
+    )
+
+    assert [(ref.article_number, ref.doc_family) for ref in refs] == [
+        ("78j", "usc"),
+        ("240.10b-5", "cfr"),
+    ]
+
+
+def test_extract_references_parses_eu_recital() -> None:
+    refs = extract_references("Recital (12) GDPR", profile="eu")
+
+    assert len(refs) == 1
+    assert refs[0].scheme == "recital"
+    assert refs[0].article_number == "12"
+    assert refs[0].doc_family == "gdpr"
+
+
+def test_normalize_reference_builds_canonical_reference_string() -> None:
+    ref = extract_references("пункт 3 статьи 450 ГК РФ", profile="ru")[0]
+
+    assert normalize_reference(ref, profile="ru") == (
+        "jur=ru|doc=gk_rf|scheme=ru_article|article=450|paragraph=3"
+    )

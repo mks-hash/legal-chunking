@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
-from legal_chunking.manifest import load_asset_json, load_manifest
+from legal_chunking.manifest import ReferenceDocFamily, load_asset_json, load_manifest
 
 
 @dataclass(slots=True)
@@ -16,6 +16,7 @@ class ResolvedProfile:
     heading_patterns: dict[str, Any]
     numbering_markers: dict[str, Any]
     chunking_policy: dict[str, Any]
+    doc_families: list[ReferenceDocFamily]
 
 
 @dataclass(slots=True, frozen=True)
@@ -41,6 +42,7 @@ def resolve_profile(profile: str) -> ResolvedProfile:
             heading_patterns=load_asset_json(direct.assets.heading_patterns),
             numbering_markers=load_asset_json(direct.assets.numbering_markers),
             chunking_policy=load_asset_json(direct.assets.chunking_policy),
+            doc_families=list(direct.reference.doc_families) if direct.reference else [],
         )
 
     for candidate in manifest.profiles.values():
@@ -53,6 +55,7 @@ def resolve_profile(profile: str) -> ResolvedProfile:
                 heading_patterns=load_asset_json(candidate.assets.heading_patterns),
                 numbering_markers=load_asset_json(candidate.assets.numbering_markers),
                 chunking_policy=load_asset_json(candidate.assets.chunking_policy),
+                doc_families=list(candidate.reference.doc_families) if candidate.reference else [],
             )
 
     raise ValueError(f"Unknown or disabled profile: {profile}")
@@ -94,3 +97,25 @@ def select_chunk_fallback(chunking_policy: dict[str, Any]) -> ChunkFallbackConfi
     if overlap_chars >= max_chars:
         raise ValueError("Chunk fallback overlap_chars must be smaller than max_chars")
     return ChunkFallbackConfig(max_chars=max_chars, overlap_chars=overlap_chars)
+
+
+def resolve_doc_family(profile: str, text: str) -> ReferenceDocFamily | None:
+    """Resolve one doc family by manifest aliases, if any."""
+    normalized = (text or "").strip().lower()
+    if not normalized:
+        return None
+    for family in resolve_profile(profile).doc_families:
+        for alias in family.aliases:
+            if alias and alias in normalized:
+                return family
+    return None
+
+
+__all__ = [
+    "ChunkFallbackConfig",
+    "ResolvedProfile",
+    "resolve_doc_family",
+    "resolve_profile",
+    "select_chunk_fallback",
+    "select_chunk_policy",
+]

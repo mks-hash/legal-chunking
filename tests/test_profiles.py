@@ -5,6 +5,7 @@ from legal_chunking import (
     get_numbering_aliases,
     get_numbering_family_aliases,
     load_manifest,
+    resolve_doc_family,
     resolve_profile,
 )
 
@@ -21,6 +22,7 @@ def test_resolve_profile_by_alias_returns_canonical_code() -> None:
 
     assert profile.code == "ru"
     assert profile.language == "ru"
+    assert profile.doc_families
     assert profile.heading_patterns["version"] == 1
     assert profile.numbering_markers["version"] == 1
     assert profile.chunking_policy["version"] == 1
@@ -78,3 +80,10 @@ def test_build_numbering_marker_pattern_prefers_longer_aliases_first() -> None:
 
     assert pattern.startswith("(?:")
     assert parts[:2] == ["sections", "section"]
+
+
+def test_resolve_doc_family_by_manifest_alias() -> None:
+    family = resolve_doc_family("ru", "Статья 229.5 ГПК РФ")
+
+    assert family is not None
+    assert family.id == "gpk_rf"
