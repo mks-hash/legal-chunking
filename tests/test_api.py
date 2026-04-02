@@ -216,3 +216,28 @@ def test_chunk_text_splits_oversized_guidance_point_by_paragraphs() -> None:
     assert len(point_chunks) == 2
     assert all(chunk.legal_unit_type == "guidance_point" for chunk in point_chunks)
     assert all(chunk.point_number == "17" for chunk in point_chunks)
+
+
+def test_chunk_text_splits_oversized_guidance_paragraph_by_sentences_before_chars() -> None:
+    long_sentence = "A" * 620 + "."
+    oversized_text = "\n".join(
+        [
+            "Обзор судебной практики.",
+            "",
+            "17. Позиция суда о защите потребителя.",
+            f"{long_sentence} {long_sentence} {long_sentence}",
+        ]
+    )
+
+    document = chunk_text(oversized_text, profile="ru", doc_kind="court_guidance")
+
+    assert document.chunk_policy == "guidance"
+    assert [chunk.chunk_method for chunk in document.chunks] == [
+        "guidance_preamble",
+        "guidance_point_paragraph",
+        "guidance_point_paragraph",
+        "guidance_point_paragraph",
+    ]
+    point_chunks = [chunk for chunk in document.chunks if chunk.section_title == "Point 17"]
+    assert len(point_chunks) == 3
+    assert all(chunk.point_number == "17" for chunk in point_chunks)
