@@ -9,11 +9,20 @@ from functools import lru_cache
 from legal_chunking.normalize import normalize_extracted_text
 from legal_chunking.numbering_markers import build_numbering_marker_pattern
 from legal_chunking.profiles import resolve_profile
+from legal_chunking.reference_context import ReferenceContextResolver
 
 _SUPERSCRIPT_TRANS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
 _SUBSCRIPT_TRANS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 _SUPERSCRIPT_AFTER_DOT_RE = re.compile(r"(?<=\d)\.([⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
 _SUPERSCRIPT_AFTER_DIGIT_RE = re.compile(r"(?<=\d)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
+_SUPERSCRIPT_SUFFIX_RE = re.compile(r"(?P<base>\d{1,4})(?P<suffix>[⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
+_STRUCTURED_SUFFIX_RE = re.compile(
+    r"(?P<base>\d{2,4})(?:\((?P<paren>\d{1,2})\)|_(?P<underscore>\d{1,2})|-(?P<hyphen>\d{1,2}))"
+)
+_WORD_SUPERSCRIPT_FOOTNOTE_RE = re.compile(
+    r"(?P<word>[A-Za-zА-Яа-яЁё]+)(?P<footnote>[⁰¹²³⁴⁵⁶⁷⁸⁹]+)"
+)
+_WORD_BRACKET_FOOTNOTE_RE = re.compile(r"(?P<word>[A-Za-zА-Яа-яЁё]+)\[(?P<footnote>\d+)\]")
 
 
 def normalize_numeric_scripts(text: str) -> str:
@@ -87,7 +96,75 @@ def normalize_article_number(value: str | None) -> str | None:
     if value is None:
         return None
     normalized = normalize_numeric_scripts(value).strip()
+    structured_match = _STRUCTURED_SUFFIX_RE.fullmatch(normalized)
+    if structured_match:
+        suffix = (
+            structured_match.group("paren")
+            or structured_match.group("underscore")
+            or structured_match.group("hyphen")
+            or ""
+        )
+        normalized = f"{structured_match.group('base')}.{suffix}"
     return normalized or None
+
+
+@lru_cache(maxsize=8)
+def _context_resolver(profile: str) -> ReferenceContextResolver:
+    return ReferenceContextResolver(resolve_profile(profile).code)
+
+
+def _has_reference_context(text: str, *, start: int, end: int, profile: str) -> bool:
+    resolver = _context_resolver(profile)
+    window_start = max(0, start - 48)
+    window_end = min(len(text), end + 48)
+    window = text[window_start:window_end]
+    return resolver.detect_context(window).is_legal_reference
+
+
+def _normalize_contextual_reference_suffixes(text: str, *, profile: str) -> str:
+    def replace_superscript(match: re.Match[str]) -> str:
+        if not _has_reference_context(text, start=match.start(), end=match.end(), profile=profile):
+            return match.group(0)
+        suffix = match.group("suffix").translate(_SUPERSCRIPT_TRANS)
+        return f"{match.group('base')}.{suffix}"
+
+    normalized = _SUPERSCRIPT_SUFFIX_RE.sub(replace_superscript, text)
+
+    def replace_structured(match: re.Match[str]) -> str:
+        if not _has_reference_context(
+            normalized,
+            start=match.start(),
+            end=match.end(),
+            profile=profile,
+        ):
+            return match.group(0)
+        suffix = (
+            match.group("paren") or match.group("underscore") or match.group("hyphen") or ""
+        )
+        return f"{match.group('base')}.{suffix}"
+
+    return _STRUCTURED_SUFFIX_RE.sub(replace_structured, normalized)
+
+
+def _drop_contextual_footnote_markers(text: str, *, profile: str) -> str:
+    def replace_superscript_footnote(match: re.Match[str]) -> str:
+        if _has_reference_context(text, start=match.start(), end=match.end(), profile=profile):
+            return match.group(0)
+        return match.group("word")
+
+    normalized = _WORD_SUPERSCRIPT_FOOTNOTE_RE.sub(replace_superscript_footnote, text)
+
+    def replace_bracket_footnote(match: re.Match[str]) -> str:
+        if _has_reference_context(
+            normalized,
+            start=match.start(),
+            end=match.end(),
+            profile=profile,
+        ):
+            return match.group(0)
+        return match.group("word")
+
+    return _WORD_BRACKET_FOOTNOTE_RE.sub(replace_bracket_footnote, normalized)
 
 
 def _repair_legal_article_footnotes(text: str, *, profile: str) -> str:
@@ -168,8 +245,9 @@ def normalize_legal_text(text: str, *, profile: str = "generic") -> str:
     normalized = normalize_extracted_text(text or "")
     if not normalized:
         return ""
-    normalized = normalize_numeric_scripts(normalized)
     normalized = _repair_legal_article_footnotes(normalized, profile=profile)
+    normalized = _normalize_contextual_reference_suffixes(normalized, profile=profile)
+    normalized = _drop_contextual_footnote_markers(normalized, profile=profile)
     normalized = _repair_split_legal_decimals(normalized, profile=profile)
     normalized = _repair_merged_article_decimals(normalized, profile=profile)
     normalized = _repair_heading_merged_legal_decimals(normalized, profile=profile)
