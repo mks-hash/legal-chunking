@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 
+from legal_chunking.detect.definitions import parse_definition_entries
 from legal_chunking.detect.rulebook import split_rulebook_rule_blocks
 from legal_chunking.hashing import _compute_chunk_identity_hash, compute_semantic_hash
 from legal_chunking.models import Chunk, Section
@@ -30,7 +31,13 @@ def build_chunks(
             chunk_policy=chunk_policy,
             fallback=fallback,
         )
-        for chunk_method, part, legal_unit_type, legal_unit_number in parts:
+        for (
+            chunk_method,
+            part,
+            legal_unit_type,
+            legal_unit_number,
+            definition_term,
+        ) in parts:
             _append_chunk(
                 chunks,
                 section=section,
@@ -38,6 +45,7 @@ def build_chunks(
                 chunk_method=chunk_method,
                 legal_unit_type=legal_unit_type,
                 legal_unit_number=legal_unit_number,
+                definition_term=definition_term,
                 source_name=source_name,
                 profile=profile,
             )
@@ -52,6 +60,7 @@ def _append_chunk(
     chunk_method: str,
     legal_unit_type: str | None,
     legal_unit_number: str | None,
+    definition_term: str | None,
     source_name: str,
     profile: str,
 ) -> None:
@@ -81,6 +90,7 @@ def _append_chunk(
             source_case_number=section.source_case_number,
             source_case_date=section.source_case_date,
             source_case_court=section.source_case_court,
+            definition_term=definition_term or section.definition_term,
             semantic_hash=compute_semantic_hash(normalized_text),
         )
     )
@@ -104,7 +114,7 @@ def _split_section(
     profile: str,
     chunk_policy: str,
     fallback: ChunkFallbackConfig,
-) -> list[tuple[str, str, str | None, str | None]]:
+) -> list[tuple[str, str, str | None, str | None, str | None]]:
     normalized = (section.text or "").strip()
     if not normalized:
         return []
@@ -117,7 +127,7 @@ def _split_section(
         )
         if is_guidance_point:
             if len(normalized) <= fallback.max_chars:
-                return [("guidance_point", normalized, None, None)]
+                return [("guidance_point", normalized, None, None, None)]
             return _split_guidance_point(normalized, paragraphs, fallback)
         if section.kind == "document_root":
             return _split_paragraph_units(paragraphs, fallback, base_method="guidance_preamble")
@@ -125,6 +135,10 @@ def _split_section(
     if chunk_policy == "case_law":
         return _split_paragraph_units(paragraphs, fallback, base_method="case_law_paragraph")
     if chunk_policy == "statute":
+        if _is_definition_schedule(section):
+            definition_chunks = _split_definition_schedule(section)
+            if definition_chunks:
+                return definition_chunks
         if (
             profile == "ae"
             and (section.section_type or "") == "section"
@@ -147,13 +161,13 @@ def _group_paragraphs(
     fallback: ChunkFallbackConfig,
     *,
     base_method: str,
-) -> list[tuple[str, str, str | None, str | None]]:
-    chunks: list[tuple[str, str, str | None, str | None]] = []
+) -> list[tuple[str, str, str | None, str | None, str | None]]:
+    chunks: list[tuple[str, str, str | None, str | None, str | None]] = []
     buffer: list[str] = []
 
     def flush_buffer() -> None:
         if buffer:
-            chunks.append((base_method, "\n\n".join(buffer).strip(), None, None))
+            chunks.append((base_method, "\n\n".join(buffer).strip(), None, None, None))
             buffer.clear()
 
     for paragraph in paragraphs:
@@ -180,13 +194,13 @@ def _split_paragraph_units(
     fallback: ChunkFallbackConfig,
     *,
     base_method: str,
-) -> list[tuple[str, str, str | None, str | None]]:
-    chunks: list[tuple[str, str, str | None, str | None]] = []
+) -> list[tuple[str, str, str | None, str | None, str | None]]:
+    chunks: list[tuple[str, str, str | None, str | None, str | None]] = []
     for paragraph in paragraphs:
         if len(paragraph) > fallback.max_chars:
             chunks.extend(_split_by_chars(paragraph, fallback))
             continue
-        chunks.append((base_method, paragraph, None, None))
+        chunks.append((base_method, paragraph, None, None, None))
     return chunks
 
 
@@ -194,24 +208,24 @@ def _split_guidance_point(
     text: str,
     paragraphs: list[str],
     fallback: ChunkFallbackConfig,
-) -> list[tuple[str, str, str | None, str | None]]:
+) -> list[tuple[str, str, str | None, str | None, str | None]]:
     _ = paragraphs
     _ = fallback
-    return [("guidance_point", text, None, None)]
+    return [("guidance_point", text, None, None, None)]
 
 
 def _split_by_chars(
     text: str,
     fallback: ChunkFallbackConfig,
-) -> list[tuple[str, str, str | None, str | None]]:
-    chunks: list[tuple[str, str, str | None, str | None]] = []
+) -> list[tuple[str, str, str | None, str | None, str | None]]:
+    chunks: list[tuple[str, str, str | None, str | None, str | None]] = []
     start = 0
     step = fallback.max_chars - fallback.overlap_chars
     while start < len(text):
         end = min(len(text), start + fallback.max_chars)
         part = text[start:end].strip()
         if part:
-            chunks.append(("char_fallback", part, None, None))
+            chunks.append(("char_fallback", part, None, None, None))
         if end >= len(text):
             break
         start += step
@@ -220,12 +234,38 @@ def _split_by_chars(
 
 def _split_rulebook_section(
     section: Section,
-) -> list[tuple[str, str, str | None, str | None]]:
+) -> list[tuple[str, str, str | None, str | None, str | None]]:
     blocks = split_rulebook_rule_blocks(section.text)
     if not blocks:
         return []
-    parts: list[tuple[str, str, str | None, str | None]] = []
+    parts: list[tuple[str, str, str | None, str | None, str | None]] = []
     for block in blocks:
         block_text = f"{section.title}\n{block.number}. {block.text}".strip()
-        parts.append(("statute_rule", block_text, "rule_block", block.number))
+        parts.append(("statute_rule", block_text, "rule_block", block.number, None))
+    return parts
+
+
+def _is_definition_schedule(section: Section) -> bool:
+    title = (section.title or "").strip().lower()
+    return (section.section_type or "") == "other" and "definition" in title
+
+
+def _split_definition_schedule(
+    section: Section,
+) -> list[tuple[str, str, str | None, str | None, str | None]]:
+    entries = parse_definition_entries(section.text)
+    if not entries:
+        return []
+    parts: list[tuple[str, str, str | None, str | None, str | None]] = []
+    for entry in entries:
+        entry_text = f"{entry.term}: {entry.definition}".strip()
+        parts.append(
+            (
+                "definition_entry",
+                entry_text,
+                "definition_entry",
+                entry.term,
+                entry.term,
+            )
+        )
     return parts

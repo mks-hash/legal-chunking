@@ -23,6 +23,7 @@ class Section:
     source_case_number: str | None = None
     source_case_date: str | None = None
     source_case_court: str | None = None
+    definition_term: str | None = None
     start_offset: int = 0
     end_offset: int = 0
     text: str = ""
@@ -47,6 +48,7 @@ class Chunk:
     source_case_number: str | None = None
     source_case_date: str | None = None
     source_case_court: str | None = None
+    definition_term: str | None = None
     semantic_hash: str = ""
     prev_chunk_id: str | None = None
     next_chunk_id: str | None = None

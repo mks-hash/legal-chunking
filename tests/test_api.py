@@ -332,3 +332,32 @@ def test_chunk_text_splits_oversized_uae_rulebook_section_by_numbered_rules() ->
     assert [chunk.legal_unit_number for chunk in document.chunks] == [None, "1", "2"]
     assert document.chunks[1].text.startswith("Section A. General principles 1.")
     assert document.chunks[2].text.startswith("Section A. General principles 2.")
+
+
+def test_chunk_text_splits_definition_schedule_into_definition_entries() -> None:
+    text = "\n".join(
+        [
+            "Schedule 1 - Definitions",
+            "Term Definition",
+            '"Client Money" means money held on behalf of a client.',
+            '"Sponsored VASP" means a VASP operating under a sponsorship arrangement.',
+        ]
+    )
+
+    document = chunk_text(text, profile="ae", doc_kind="primary_legislation")
+
+    assert document.chunk_policy == "statute"
+    assert [chunk.chunk_method for chunk in document.chunks] == [
+        "definition_entry",
+        "definition_entry",
+    ]
+    assert [chunk.legal_unit_type for chunk in document.chunks] == [
+        "definition_entry",
+        "definition_entry",
+    ]
+    assert [chunk.definition_term for chunk in document.chunks] == [
+        "Client Money",
+        "Sponsored VASP",
+    ]
+    assert document.chunks[0].text.startswith("Client Money:")
+    assert document.chunks[1].text.startswith("Sponsored VASP:")
