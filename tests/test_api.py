@@ -180,6 +180,38 @@ def test_normalize_page_raw_text_preserves_non_header_arabic_content() -> None:
     assert "Article 1. General provisions" in normalized
 
 
+def test_normalize_page_raw_text_does_not_drop_marker_without_repetition() -> None:
+    raw = "\n".join(
+        [
+            "Virtual Assets Regulatory Authority licensing conditions apply.",
+            "Article 1. General provisions",
+        ]
+    )
+
+    normalized = _normalize_page_raw_text(raw, profile="generic")
+
+    assert normalized.startswith("Virtual Assets Regulatory Authority licensing conditions apply.")
+    assert "Article 1. General provisions" in normalized
+
+
+def test_normalize_page_raw_text_trims_repeated_leading_header_noise() -> None:
+    raw = "\n".join(
+        [
+            "Virtual Assets Regulatory Authority",
+            "Article 1. General provisions",
+            "Body of article one.",
+        ]
+    )
+
+    normalized = _normalize_page_raw_text(
+        raw,
+        profile="generic",
+        repeated_noise={"Virtual Assets Regulatory Authority"},
+    )
+
+    assert normalized == "Article 1. General provisions\nBody of article one."
+
+
 def test_normalize_page_raw_text_keeps_enumerated_content_outside_heading_detection() -> None:
     raw = "\n".join(
         [

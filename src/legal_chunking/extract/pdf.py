@@ -65,17 +65,32 @@ def _is_running_header_line(line: str) -> bool:
     return False
 
 
-def _is_leading_header_fragment(line: str) -> bool:
+def _is_leading_header_fragment(
+    line: str,
+    *,
+    repeated_noise: set[str] | None = None,
+) -> bool:
     stripped = (line or "").strip()
     lowered = stripped.lower()
     if not stripped:
         return False
-    return any(marker in lowered for marker in _LEADING_HEADER_MARKERS)
+    if stripped in (repeated_noise or set()):
+        return True
+    if len(stripped) > 48 or any(punct in stripped for punct in _TERMINAL_PUNCTUATION):
+        return False
+    return any(lowered.startswith(marker) for marker in _LEADING_HEADER_MARKERS)
 
 
-def _trim_leading_header_fragments(lines: list[str]) -> list[str]:
+def _trim_leading_header_fragments(
+    lines: list[str],
+    *,
+    repeated_noise: set[str] | None = None,
+) -> list[str]:
     start = 0
-    while start < len(lines) and start < 2 and _is_leading_header_fragment(lines[start]):
+    while start < len(lines) and start < 2 and _is_leading_header_fragment(
+        lines[start],
+        repeated_noise=repeated_noise,
+    ):
         start += 1
     return lines[start:]
 
@@ -179,7 +194,7 @@ def _normalize_page_raw_text(
         and line not in (repeated_noise or set())
         and not _is_running_header_line(line)
     ]
-    lines = _trim_leading_header_fragments(lines)
+    lines = _trim_leading_header_fragments(lines, repeated_noise=repeated_noise)
     if sum(1 for line in lines if _TOC_LEADER_RE.search(line)) >= 2:
         return ""
     lines = _merge_marker_lines(lines)
