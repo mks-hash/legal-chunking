@@ -71,7 +71,7 @@
       "language": "en",
       "reference": {
         "enabled": true,
-        "require_doc_family": false,
+        "require_doc_family": true,
         "match_mode": "family_first",
         "doc_families": [
           {"id": "gdpr", "kind": "regulation", "aliases": ["GDPR", "General Data Protection Regulation"]},
