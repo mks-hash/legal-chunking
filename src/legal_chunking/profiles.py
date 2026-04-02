@@ -112,7 +112,7 @@ def resolve_doc_family(profile: str, text: str) -> ReferenceDocFamily | None:
     normalized = (text or "").strip().lower()
     if not normalized:
         return None
-    hits = _find_doc_family_alias_hits(profile, normalized)
+    hits = find_doc_family_alias_hits(profile, normalized)
     if not hits:
         return None
     return max(hits, key=lambda hit: (hit.alias_length, -hit.start)).family
@@ -120,16 +120,19 @@ def resolve_doc_family(profile: str, text: str) -> ReferenceDocFamily | None:
 
 def resolve_doc_family_near(
     profile: str,
-    text: str,
+    text_or_hits: str | tuple[_DocFamilyAliasHit, ...],
     *,
     anchor_start: int,
     anchor_end: int,
 ) -> ReferenceDocFamily | None:
     """Resolve the nearest doc-family alias to one citation span."""
-    normalized = (text or "").strip().lower()
-    if not normalized:
-        return None
-    hits = _find_doc_family_alias_hits(profile, normalized)
+    if isinstance(text_or_hits, tuple):
+        hits = text_or_hits
+    else:
+        normalized = (text_or_hits or "").strip().lower()
+        if not normalized:
+            return None
+        hits = find_doc_family_alias_hits(profile, normalized)
     if not hits:
         return None
     best_hit = min(
@@ -143,7 +146,11 @@ def resolve_doc_family_near(
     return best_hit.family
 
 
-def _find_doc_family_alias_hits(profile: str, normalized_text: str) -> list[_DocFamilyAliasHit]:
+@lru_cache(maxsize=128)
+def find_doc_family_alias_hits(
+    profile: str,
+    normalized_text: str,
+) -> tuple[_DocFamilyAliasHit, ...]:
     hits: list[_DocFamilyAliasHit] = []
     for family in resolve_profile(profile).doc_families:
         for alias in family.aliases:
@@ -160,7 +167,7 @@ def _find_doc_family_alias_hits(profile: str, normalized_text: str) -> list[_Doc
                     )
                 )
                 offset = normalized_text.find(alias, offset + 1)
-    return hits
+    return tuple(hits)
 
 
 def _alias_distance(anchor_start: int, anchor_end: int, alias_start: int, alias_end: int) -> int:
@@ -174,6 +181,7 @@ def _alias_distance(anchor_start: int, anchor_end: int, alias_start: int, alias_
 __all__ = [
     "ChunkFallbackConfig",
     "ResolvedProfile",
+    "find_doc_family_alias_hits",
     "resolve_doc_family",
     "resolve_doc_family_near",
     "resolve_profile",

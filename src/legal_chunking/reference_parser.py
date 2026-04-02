@@ -7,7 +7,11 @@ from dataclasses import dataclass
 
 from legal_chunking.manifest import ReferenceDocFamily
 from legal_chunking.numbering_markers import get_numbering_family_aliases
-from legal_chunking.profiles import resolve_doc_family_near, resolve_profile
+from legal_chunking.profiles import (
+    find_doc_family_alias_hits,
+    resolve_doc_family_near,
+    resolve_profile,
+)
 from legal_chunking.references import normalize_article_number, normalize_reference_text
 
 
@@ -143,9 +147,9 @@ def _build_marker_prefix_pattern(*, profile: str, family: str) -> str:
     compact_aliases, spaced_aliases = _split_marker_alias_groups(profile=profile, family=family)
     variants: list[str] = []
     if spaced_aliases:
-        variants.append(rf"(?:{'|'.join(spaced_aliases)})\s+")
+        variants.append(rf"(?<!\w)(?:{'|'.join(spaced_aliases)})\s+")
     if compact_aliases:
-        variants.append(rf"(?:{'|'.join(compact_aliases)})\s*")
+        variants.append(rf"(?<!\w)(?:{'|'.join(compact_aliases)})\s*")
     if not variants:
         return r"(?!x)x"
     return "(?:" + "|".join(variants) + ")"
@@ -286,7 +290,7 @@ def _jurisdiction_scheme_patterns(
 
 def _resolve_match_doc_family(
     *,
-    text: str,
+    alias_hits: tuple[object, ...],
     match: re.Match[str],
     profile: str,
     explicit_doc_family: str | None,
@@ -297,7 +301,7 @@ def _resolve_match_doc_family(
 
     family = resolve_doc_family_near(
         profile,
-        text,
+        alias_hits,
         anchor_start=match.start(),
         anchor_end=match.end(),
     )
@@ -333,6 +337,7 @@ def extract_references(
         else inherited_family
     )
     text_norm = normalize_reference_text(text or "", profile=resolved_profile.code)
+    alias_hits = find_doc_family_alias_hits(resolved_profile.code, text_norm.strip().lower())
     results: list[ParsedReference] = []
     seen: set[tuple[str, str | None, str | None, str | None, str | None]] = set()
     scoped_patterns, generic_patterns = _jurisdiction_scheme_patterns(
@@ -359,7 +364,7 @@ def extract_references(
             if not article:
                 continue
             match_family = _resolve_match_doc_family(
-                text=text_norm,
+                alias_hits=alias_hits,
                 match=match,
                 profile=resolved_profile.code,
                 explicit_doc_family=inherited_family_id,
@@ -382,7 +387,7 @@ def extract_references(
             if not article:
                 continue
             match_family = _resolve_match_doc_family(
-                text=text_norm,
+                alias_hits=alias_hits,
                 match=match,
                 profile=resolved_profile.code,
                 explicit_doc_family=spec.doc_family or inherited_family_id,

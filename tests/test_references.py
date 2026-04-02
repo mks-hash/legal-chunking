@@ -257,6 +257,12 @@ def test_extract_references_parses_compact_ru_marker_number_form() -> None:
     ]
 
 
+def test_extract_references_rejects_compact_ru_marker_inside_unrelated_word() -> None:
+    refs = extract_references("ГОСТ.5 ГК РФ", profile="ru")
+
+    assert refs == []
+
+
 def test_extract_references_parses_compact_eu_marker_number_form() -> None:
     refs = extract_references("art.5 GDPR", profile="eu")
 
