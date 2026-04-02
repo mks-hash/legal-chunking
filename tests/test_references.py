@@ -143,6 +143,28 @@ def test_extract_references_parses_usc_section_with_doc_family_narrowing() -> No
     assert refs[0].doc_family == "usc"
 
 
+def test_extract_references_us_doc_family_narrowing_excludes_other_family_matches() -> None:
+    refs = extract_references(
+        "15 U.S.C. § 78j and 17 C.F.R. § 240.10b-5",
+        profile="us",
+        doc_family="usc",
+    )
+
+    assert [(ref.article_number, ref.doc_family) for ref in refs] == [("78j", "usc")]
+
+
+def test_extract_references_resolves_doc_family_per_match() -> None:
+    refs = extract_references(
+        "15 U.S.C. § 78j and 17 C.F.R. § 240.10b-5",
+        profile="us",
+    )
+
+    assert [(ref.article_number, ref.doc_family) for ref in refs] == [
+        ("78j", "usc"),
+        ("240.10b-5", "cfr"),
+    ]
+
+
 def test_extract_references_parses_eu_recital() -> None:
     refs = extract_references("Recital (12) GDPR", profile="eu")
 
