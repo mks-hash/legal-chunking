@@ -1,0 +1,89 @@
+from legal_chunking import assemble_sections, chunk_text
+
+
+def test_assemble_sections_returns_document_root_for_plain_text() -> None:
+    sections = assemble_sections("Plain body text only.", profile="generic")
+
+    assert len(sections) == 1
+    assert sections[0].kind == "document_root"
+    assert sections[0].title == "Document"
+    assert sections[0].text == "Plain body text only."
+
+
+def test_assemble_sections_builds_hierarchy_for_headings() -> None:
+    text = "\n".join(
+        [
+            "Article 1. General provisions",
+            "Body of article one.",
+            "1.1 Scope",
+            "Body of scope clause.",
+        ]
+    )
+
+    sections = assemble_sections(text, profile="generic")
+
+    assert len(sections) == 3
+    assert sections[0].kind == "document_root"
+    assert sections[1].kind == "article"
+    assert sections[1].article_number == "1"
+    assert sections[1].parent_section_id == sections[0].section_id
+    assert sections[2].kind == "article"
+    assert sections[2].article_number == "1.1"
+    assert sections[2].parent_section_id == sections[0].section_id
+
+
+def test_chunk_text_materializes_sections_and_section_chunks() -> None:
+    text = "\n".join(
+        [
+            "Article 1. General provisions",
+            "Body of article one.",
+            "Article 2. Final provisions",
+            "Body of article two.",
+        ]
+    )
+
+    document = chunk_text(text, profile="generic")
+
+    assert len(document.sections) == 3
+    assert [chunk.section_title for chunk in document.chunks] == [
+        "Article 1. General provisions",
+        "Article 2. Final provisions",
+    ]
+    assert document.chunks[0].prev_chunk_id is None
+    assert document.chunks[-1].next_chunk_id is None
+
+
+def test_repeated_heading_paths_get_distinct_section_ids() -> None:
+    text = "\n".join(
+        [
+            "Article 1. Same",
+            "First body.",
+            "Article 1. Same",
+            "Second body.",
+        ]
+    )
+
+    sections = assemble_sections(text, profile="generic")
+
+    assert len(sections) == 3
+    assert sections[1].section_id != sections[2].section_id
+    assert sections[1].text.endswith("First body.")
+    assert sections[2].text.endswith("Second body.")
+
+
+def test_noncanonical_other_heading_is_promoted_to_root_level() -> None:
+    text = "\n".join(
+        [
+            "Article 1. Main section",
+            "Body of main section.",
+            "Schedule No. 1 Definitions",
+            "Body of schedule.",
+        ]
+    )
+
+    sections = assemble_sections(text, profile="generic")
+
+    assert len(sections) == 3
+    assert sections[2].kind == "other"
+    assert sections[2].parent_section_id == sections[0].section_id
+    assert sections[2].title == "Schedule 1. Definitions"

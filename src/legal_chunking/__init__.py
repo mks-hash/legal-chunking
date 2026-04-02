@@ -2,6 +2,7 @@
 
 from legal_chunking.api import chunk_pdf, chunk_text
 from legal_chunking.detect.headings import HeadingMatch, compile_heading_patterns, detect_heading
+from legal_chunking.detect.sections import assemble_sections
 from legal_chunking.hashing import compute_semantic_hash
 from legal_chunking.manifest import load_manifest
 from legal_chunking.models import Chunk, Document, Section
@@ -13,6 +14,7 @@ __all__ = [
     "Document",
     "HeadingMatch",
     "Section",
+    "assemble_sections",
     "compile_heading_patterns",
     "compute_semantic_hash",
     "detect_heading",
