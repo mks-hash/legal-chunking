@@ -146,7 +146,6 @@ def resolve_doc_family_near(
     return best_hit.family
 
 
-@lru_cache(maxsize=128)
 def find_doc_family_alias_hits(
     profile: str,
     normalized_text: str,
