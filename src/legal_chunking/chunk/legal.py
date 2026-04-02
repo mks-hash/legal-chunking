@@ -180,94 +180,9 @@ def _split_guidance_point(
     paragraphs: list[str],
     fallback: ChunkFallbackConfig,
 ) -> list[tuple[str, str]]:
-    if len(text) <= fallback.max_chars:
-        return [("guidance_point", text)]
-
-    return _group_paragraphs_with_sentence_fallback(
-        paragraphs,
-        fallback,
-        base_method="guidance_point_paragraph",
-    )
-
-
-def _group_paragraphs_with_sentence_fallback(
-    paragraphs: list[str],
-    fallback: ChunkFallbackConfig,
-    *,
-    base_method: str,
-) -> list[tuple[str, str]]:
-    chunks: list[tuple[str, str]] = []
-    buffer: list[str] = []
-
-    def flush_buffer() -> None:
-        if buffer:
-            chunks.append((base_method, "\n\n".join(buffer).strip()))
-            buffer.clear()
-
-    for paragraph in paragraphs:
-        if len(paragraph) > fallback.max_chars:
-            flush_buffer()
-            chunks.extend(
-                _split_paragraph_by_sentences(
-                    paragraph,
-                    fallback,
-                    base_method=base_method,
-                )
-            )
-            continue
-
-        candidate_parts = [*buffer, paragraph]
-        candidate = "\n\n".join(candidate_parts).strip()
-        if candidate and len(candidate) <= fallback.max_chars:
-            buffer = candidate_parts
-            continue
-
-        flush_buffer()
-        buffer.append(paragraph)
-
-    flush_buffer()
-    return chunks
-
-
-def _split_paragraph_by_sentences(
-    paragraph: str,
-    fallback: ChunkFallbackConfig,
-    *,
-    base_method: str,
-) -> list[tuple[str, str]]:
-    sentences = [
-        sentence.strip()
-        for sentence in re.split(r"(?<=[.!?])\s+", paragraph)
-        if sentence.strip()
-    ]
-    if len(sentences) <= 1:
-        return _split_by_chars(paragraph, fallback)
-
-    chunks: list[tuple[str, str]] = []
-    buffer: list[str] = []
-
-    def flush_buffer() -> None:
-        if buffer:
-            chunks.append((base_method, " ".join(buffer).strip()))
-            buffer.clear()
-
-    for sentence in sentences:
-        if len(sentence) > fallback.max_chars:
-            flush_buffer()
-            chunks.extend(_split_by_chars(sentence, fallback))
-            continue
-
-        candidate_parts = [*buffer, sentence]
-        candidate = " ".join(candidate_parts).strip()
-        if candidate and len(candidate) <= fallback.max_chars:
-            buffer = candidate_parts
-            continue
-
-        flush_buffer()
-        buffer.append(sentence)
-
-    flush_buffer()
-    return chunks
+    _ = paragraphs
+    _ = fallback
+    return [("guidance_point", text)]
 
 
 def _split_by_chars(text: str, fallback: ChunkFallbackConfig) -> list[tuple[str, str]]:
