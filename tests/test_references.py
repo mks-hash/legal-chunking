@@ -116,6 +116,42 @@ def test_parsed_reference_to_canonical_parts_preserves_full_paragraph_number() -
     }
 
 
+def test_parsed_reference_to_canonical_parts_normalizes_jurisdiction_alias() -> None:
+    ref = ParsedReference(
+        raw="15 U.S.C. § 78j",
+        scheme="section",
+        article_number="78j",
+        paragraph_number=None,
+        part_number=None,
+        doc_family="usc",
+    )
+
+    assert ref.to_canonical_parts(jurisdiction="U.S.") == {
+        "jurisdiction": "us",
+        "scheme": "section",
+        "article_number": "78j",
+        "doc_family": "usc",
+    }
+
+
+def test_parsed_reference_to_canonical_parts_rejects_missing_article_number() -> None:
+    ref = ParsedReference(
+        raw="Article",
+        scheme="article",
+        article_number=None,
+        paragraph_number=None,
+        part_number=None,
+        doc_family=None,
+    )
+
+    try:
+        ref.to_canonical_parts(jurisdiction="ru")
+    except ValueError as exc:
+        assert "article_number" in str(exc)
+    else:
+        raise AssertionError("Expected canonical parts to reject missing article_number")
+
+
 def test_normalize_legal_text_preserves_plain_range_endpoints() -> None:
     text = "пункт 1-20 статьи 5 АПК РФ"
 

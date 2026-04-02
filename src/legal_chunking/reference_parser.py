@@ -34,10 +34,14 @@ class ParsedReference:
         }
 
     def to_canonical_parts(self, *, jurisdiction: str) -> dict[str, str]:
+        normalized_jurisdiction = resolve_profile(jurisdiction).code
+        article_number = normalize_article_number(self.article_number)
+        if not article_number:
+            raise ValueError("ParsedReference must contain article_number for canonical parts")
         parts = {
-            "jurisdiction": jurisdiction,
+            "jurisdiction": normalized_jurisdiction,
             "scheme": (self.scheme or "article").lower(),
-            "article_number": normalize_article_number(self.article_number) or "",
+            "article_number": article_number,
         }
         if self.doc_family:
             parts["doc_family"] = self.doc_family
