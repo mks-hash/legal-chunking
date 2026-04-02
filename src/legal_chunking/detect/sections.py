@@ -11,6 +11,7 @@ from legal_chunking.detect.guidance import (
 )
 from legal_chunking.detect.headings import HeadingMatch, detect_heading
 from legal_chunking.models import Section
+from legal_chunking.tracing import TraceCollector
 
 LEVEL_ORDER = ["document_root", "part", "chapter", "section", "article", "clause", "paragraph"]
 
@@ -44,6 +45,7 @@ def assemble_sections(
     profile: str = "generic",
     chunk_policy: str = "default",
     source_name: str = "<memory>",
+    trace: TraceCollector | None = None,
 ) -> list[Section]:
     """Build a deterministic section tree from normalized text."""
     normalized = (text or "").strip()
@@ -51,7 +53,11 @@ def assemble_sections(
         return []
 
     if chunk_policy == "guidance":
-        guidance_sections = _assemble_guidance_sections(normalized, source_name=source_name)
+        guidance_sections = _assemble_guidance_sections(
+            normalized,
+            source_name=source_name,
+            trace=trace,
+        )
         if guidance_sections is not None:
             return guidance_sections
 
@@ -126,6 +132,13 @@ def assemble_sections(
 
         heading = detect_heading(stripped, profile=profile, chunk_policy=chunk_policy)
         if heading is not None:
+            if trace is not None:
+                trace.emit(
+                    "heading_detected",
+                    kind=heading.kind,
+                    label=heading.label,
+                    offset=line_offset,
+                )
             start_new_section(heading, line_offset)
 
         current = stack[-1]
@@ -148,7 +161,12 @@ def assemble_sections(
     return result
 
 
-def _assemble_guidance_sections(text: str, *, source_name: str) -> list[Section] | None:
+def _assemble_guidance_sections(
+    text: str,
+    *,
+    source_name: str,
+    trace: TraceCollector | None = None,
+) -> list[Section] | None:
     normalized = normalize_guidance_text(text)
     if not normalized:
         return []
@@ -189,6 +207,8 @@ def _assemble_guidance_sections(text: str, *, source_name: str) -> list[Section]
         if block.method == "guidance_preamble":
             root.text = block.text
             root.end_offset = end_offset
+            if trace is not None:
+                trace.emit("guidance_preamble_detected", char_length=len(block.text))
             continue
 
         if block.method != "guidance_point":
@@ -205,6 +225,12 @@ def _assemble_guidance_sections(text: str, *, source_name: str) -> list[Section]
         occurrence = path_occurrences.get(path_key, 0) + 1
         path_occurrences[path_key] = occurrence
         metadata = extract_guidance_point_metadata(block.text, point_number=block.point_number)
+        if trace is not None:
+            trace.emit(
+                "guidance_point_detected",
+                point_number=metadata.point_number,
+                has_case_reference=metadata.source_case_reference is not None,
+            )
         sections.append(
             Section(
                 section_id=_make_section_id(source_name, path, occurrence),

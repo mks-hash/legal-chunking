@@ -11,6 +11,7 @@ from legal_chunking.hashing import _compute_chunk_identity_hash, compute_semanti
 from legal_chunking.models import Chunk, Section
 from legal_chunking.normalize import normalize_chunk_text
 from legal_chunking.profiles import ChunkFallbackConfig
+from legal_chunking.tracing import TraceCollector
 
 
 def build_chunks(
@@ -20,6 +21,7 @@ def build_chunks(
     profile: str,
     chunk_policy: str,
     fallback: ChunkFallbackConfig,
+    trace: TraceCollector | None = None,
 ) -> list[Chunk]:
     """Build deterministic chunks from parsed sections and one resolved policy."""
     selected_sections = _select_sections(sections, chunk_policy=chunk_policy)
@@ -30,6 +32,7 @@ def build_chunks(
             profile=profile,
             chunk_policy=chunk_policy,
             fallback=fallback,
+            trace=trace,
         )
         for (
             chunk_method,
@@ -114,6 +117,7 @@ def _split_section(
     profile: str,
     chunk_policy: str,
     fallback: ChunkFallbackConfig,
+    trace: TraceCollector | None = None,
 ) -> list[tuple[str, str, str | None, str | None, str | None]]:
     normalized = (section.text or "").strip()
     if not normalized:
@@ -136,7 +140,7 @@ def _split_section(
         return _split_paragraph_units(paragraphs, fallback, base_method="case_law_paragraph")
     if chunk_policy == "statute":
         if _is_definition_schedule(section):
-            definition_chunks = _split_definition_schedule(section)
+            definition_chunks = _split_definition_schedule(section, trace=trace)
             if definition_chunks:
                 return definition_chunks
         if (
@@ -144,7 +148,7 @@ def _split_section(
             and (section.section_type or "") == "section"
             and len(normalized) > fallback.max_chars
         ):
-            rule_chunks = _split_rulebook_section(section)
+            rule_chunks = _split_rulebook_section(section, trace=trace)
             if rule_chunks:
                 return rule_chunks
         return _group_paragraphs(paragraphs, fallback, base_method="statute_unit")
@@ -234,10 +238,18 @@ def _split_by_chars(
 
 def _split_rulebook_section(
     section: Section,
+    *,
+    trace: TraceCollector | None = None,
 ) -> list[tuple[str, str, str | None, str | None, str | None]]:
     blocks = split_rulebook_rule_blocks(section.text)
     if not blocks:
         return []
+    if trace is not None:
+        trace.emit(
+            "rule_block_split",
+            section=section.title,
+            count=len(blocks),
+        )
     parts: list[tuple[str, str, str | None, str | None, str | None]] = []
     for block in blocks:
         block_text = f"{section.title}\n{block.number}. {block.text}".strip()
@@ -252,10 +264,18 @@ def _is_definition_schedule(section: Section) -> bool:
 
 def _split_definition_schedule(
     section: Section,
+    *,
+    trace: TraceCollector | None = None,
 ) -> list[tuple[str, str, str | None, str | None, str | None]]:
     entries = parse_definition_entries(section.text)
     if not entries:
         return []
+    if trace is not None:
+        trace.emit(
+            "definition_schedule_split",
+            section=section.title,
+            count=len(entries),
+        )
     parts: list[tuple[str, str, str | None, str | None, str | None]] = []
     for entry in entries:
         entry_text = f"{entry.term}: {entry.definition}".strip()
