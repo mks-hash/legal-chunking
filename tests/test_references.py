@@ -44,6 +44,8 @@ def test_normalize_legal_text_strips_explicit_bracket_footnote_only() -> None:
     text = "статья 443[1] ГК РФ"
 
     assert normalize_legal_text(text, profile="ru") == "статья 443 ГК РФ"
+    assert normalize_legal_text("статья 5[1] ГК РФ", profile="ru") == "статья 5 ГК РФ"
+    assert normalize_legal_text("статья 1000[1] ГК РФ", profile="ru") == "статья 1000 ГК РФ"
 
 
 def test_normalize_legal_text_drops_non_reference_footnote_markers() -> None:
@@ -103,6 +105,7 @@ def test_normalize_legal_text_repairs_ru_heading_decimal_when_bounded() -> None:
 def test_normalize_legal_text_preserves_unknown_numeric_suffix_without_context() -> None:
     assert normalize_legal_text("229⁵", profile="ru") == "229⁵"
     assert normalize_legal_text("229(5)", profile="ru") == "229(5)"
+    assert normalize_legal_text("статьи 10-20 ГК РФ", profile="ru") == "статьи 10-20 ГК РФ"
 
 
 def test_reference_context_resolver_uses_vocabulary_families() -> None:
@@ -111,3 +114,9 @@ def test_reference_context_resolver_uses_vocabulary_families() -> None:
     assert resolver.detect_context("Статья 229⁵ ГПК РФ").family == "article_like"
     assert resolver.detect_context("часть 2 статьи 2881 АПК РФ").family == "article_like"
     assert resolver.detect_context("Условие договора¹").family == "unknown"
+
+
+def test_normalize_legal_text_preserves_zero_ending_chapter_numbers() -> None:
+    text = "глава 100 АПК РФ"
+
+    assert normalize_legal_text(text, profile="ru") == "глава 100 АПК РФ"

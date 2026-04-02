@@ -17,7 +17,7 @@ _SUPERSCRIPT_AFTER_DOT_RE = re.compile(r"(?<=\d)\.([⁰¹²³⁴⁵⁶⁷⁸⁹]
 _SUPERSCRIPT_AFTER_DIGIT_RE = re.compile(r"(?<=\d)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
 _SUPERSCRIPT_SUFFIX_RE = re.compile(r"(?P<base>\d{1,4})(?P<suffix>[⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
 _STRUCTURED_SUFFIX_RE = re.compile(
-    r"(?P<base>\d{2,4})(?:\((?P<paren>\d{1,2})\)|_(?P<underscore>\d{1,2})|-(?P<hyphen>\d{1,2}))"
+    r"(?P<base>\d{2,4})(?:\((?P<paren>\d{1,2})\)|_(?P<underscore>\d{1,2})|-(?P<hyphen>\d)(?!\d))"
 )
 _WORD_SUPERSCRIPT_FOOTNOTE_RE = re.compile(
     r"(?P<word>[A-Za-zА-Яа-яЁё]+)(?P<footnote>[⁰¹²³⁴⁵⁶⁷⁸⁹]+)"
@@ -60,7 +60,7 @@ def _ru_numbering_rules(profile: str) -> dict[str, re.Pattern[str]]:
     )
     return {
         "article_bracket_footnote_re": re.compile(
-            rf"(?i)\b({article_keyword}\s+\d{{2,3}})\s*\[\d+\]"
+            rf"(?i)\b({article_keyword}\s+\d{{1,5}})\s*\[\d+\]"
         ),
         "legal_ref_split_decimal_re": re.compile(
             r"(?i)\b("
@@ -189,7 +189,7 @@ def _replace_with_decimal(prefix: str, raw_number: str, *, base_len: int) -> str
         return prefix + raw_number
     base = raw_number[:base_len]
     suffix = raw_number[base_len:]
-    if not suffix or (suffix.startswith("0") and len(raw_number) == 4):
+    if not suffix or suffix.startswith("0"):
         return prefix + raw_number
     return f"{prefix}{base}.{suffix}"
 
