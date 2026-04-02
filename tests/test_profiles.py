@@ -39,3 +39,9 @@ def test_unknown_profile_raises_value_error() -> None:
         assert "Unknown or disabled profile" in str(exc)
     else:
         raise AssertionError("Expected resolve_profile to reject an unknown profile")
+
+
+def test_unknown_doc_kind_uses_other_policy_before_code_default() -> None:
+    document = chunk_text("Internal note body.", profile="generic", doc_kind="internal_memo")
+
+    assert document.chunk_policy == "default"

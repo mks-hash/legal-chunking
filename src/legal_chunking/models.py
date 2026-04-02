@@ -25,6 +25,7 @@ class Chunk:
     chunk_id: str
     text: str
     order: int
+    chunk_method: str = "by_section"
     page: int | None = None
     section_id: str | None = None
     section_title: str | None = None
@@ -42,5 +43,6 @@ class Document:
     language: str | None
     text: str
     pipeline_version: str = "0.1.0"
+    chunk_policy: str = "default"
     sections: list[Section] = field(default_factory=list)
     chunks: list[Chunk] = field(default_factory=list)
