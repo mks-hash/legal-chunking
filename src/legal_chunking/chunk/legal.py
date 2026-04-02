@@ -180,16 +180,9 @@ def _split_guidance_point(
     paragraphs: list[str],
     fallback: ChunkFallbackConfig,
 ) -> list[tuple[str, str]]:
-    if len(text) <= fallback.max_chars:
-        return [("guidance_point", text)]
-
-    chunks: list[tuple[str, str]] = []
-    for paragraph in paragraphs:
-        if len(paragraph) > fallback.max_chars:
-            chunks.extend(_split_by_chars(paragraph, fallback))
-            continue
-        chunks.append(("guidance_point_paragraph", paragraph))
-    return chunks
+    _ = paragraphs
+    _ = fallback
+    return [("guidance_point", text)]
 
 
 def _split_by_chars(text: str, fallback: ChunkFallbackConfig) -> list[tuple[str, str]]:

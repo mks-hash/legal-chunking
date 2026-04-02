@@ -192,7 +192,7 @@ def test_chunk_text_builds_guidance_point_chunks_from_review_fixture() -> None:
     assert document.chunks[1].source_case_court == "Верховный Суд РФ"
 
 
-def test_chunk_text_splits_oversized_guidance_point_by_paragraphs() -> None:
+def test_chunk_text_keeps_oversized_guidance_point_as_single_chunk() -> None:
     oversized_text = "\n".join(
         [
             "Обзор судебной практики.",
@@ -209,10 +209,33 @@ def test_chunk_text_splits_oversized_guidance_point_by_paragraphs() -> None:
     assert document.chunk_policy == "guidance"
     assert [chunk.chunk_method for chunk in document.chunks] == [
         "guidance_preamble",
-        "guidance_point_paragraph",
-        "guidance_point_paragraph",
+        "guidance_point",
     ]
     point_chunks = [chunk for chunk in document.chunks if chunk.section_title == "Point 17"]
-    assert len(point_chunks) == 2
+    assert len(point_chunks) == 1
     assert all(chunk.legal_unit_type == "guidance_point" for chunk in point_chunks)
     assert all(chunk.point_number == "17" for chunk in point_chunks)
+
+
+def test_chunk_text_keeps_realistic_guidance_fixture_points_as_primary_units() -> None:
+    text = (FIXTURES_DIR / "review_ru_guidance.txt").read_text(encoding="utf-8")
+    expanded_text = text.replace(
+        "17. Банк как выгодоприобретатель по договору личного страхования.",
+        (
+            "17. Банк как выгодоприобретатель по договору личного страхования.\n"
+            + "\n".join(["Дополнительное обоснование позиции суда."] * 80)
+        ),
+    )
+
+    document = chunk_text(expanded_text, profile="ru", doc_kind="court_guidance")
+
+    assert document.chunk_policy == "guidance"
+    assert [chunk.section_title for chunk in document.chunks] == [
+        "Document",
+        "Point 17",
+        "Point 18",
+    ]
+    point_chunks = [chunk for chunk in document.chunks if chunk.section_title == "Point 17"]
+    assert len(point_chunks) == 1
+    assert point_chunks[0].chunk_method == "guidance_point"
+    assert point_chunks[0].source_case_number == "18-КГ23-155-К4"
