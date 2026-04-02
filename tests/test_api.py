@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import fitz
+
 from legal_chunking import chunk_pdf, chunk_text
 from legal_chunking.hashing import compute_semantic_hash
 from legal_chunking.normalize import normalize_chunk_text, normalize_extracted_text
@@ -22,13 +24,71 @@ def test_chunk_text_returns_document() -> None:
     assert document.chunk_policy == "statute"
 
 
-def test_chunk_pdf_returns_placeholder_document() -> None:
-    document = chunk_pdf("agreement.pdf", profile="ru")
+def test_chunk_pdf_extracts_text_and_chunks_pdf(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "agreement.pdf"
+    document_writer = fitz.open()
+    try:
+        first_page = document_writer.new_page()
+        first_page.insert_text(
+            (72, 72),
+            "1\nArticle 1. General provisions\nText of the first article.",
+        )
+        second_page = document_writer.new_page()
+        second_page.insert_text(
+            (72, 72),
+            "Article 2. Review procedure\nText of the second article.",
+        )
+        document_writer.save(pdf_path)
+    finally:
+        document_writer.close()
+
+    document = chunk_pdf(pdf_path, profile="generic")
 
     assert document.source_name == "agreement.pdf"
-    assert document.profile == "ru"
-    assert document.chunks == []
+    assert document.profile == "generic"
+    assert document.text == (
+        "Article 1. General provisions\nText of the first article.\n\n"
+        "Article 2. Review procedure\nText of the second article."
+    )
     assert document.chunk_policy == "statute"
+    assert [chunk.section_title for chunk in document.chunks] == [
+        "Article 1. General provisions",
+        "Article 2. Review procedure",
+    ]
+
+
+def test_chunk_pdf_preserves_guidance_policy_when_doc_kind_is_provided(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "guidance.pdf"
+    document_writer = fitz.open()
+    try:
+        page = document_writer.new_page()
+        page.insert_text(
+            (72, 72),
+            (
+                "Review introduction.\n\n"
+                "1. First review point.\n"
+                "Point body.\n\n"
+                "2. Second review point.\n"
+                "Second body."
+            ),
+        )
+        document_writer.save(pdf_path)
+    finally:
+        document_writer.close()
+
+    document = chunk_pdf(pdf_path, profile="generic", doc_kind="court_guidance")
+
+    assert document.chunk_policy == "guidance"
+    assert [chunk.section_title for chunk in document.chunks] == [
+        "Document",
+        "Point 1",
+        "Point 2",
+    ]
+    assert [chunk.chunk_method for chunk in document.chunks] == [
+        "guidance_preamble",
+        "guidance_point",
+        "guidance_point",
+    ]
 
 
 def test_normalize_extracted_text_preserves_paragraph_boundaries() -> None:

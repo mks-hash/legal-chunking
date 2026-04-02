@@ -60,6 +60,12 @@ pip install -e .[dev]
 pytest
 ```
 
+PDF extraction uses an optional dependency:
+
+```bash
+pip install legal-chunking[pdf]
+```
+
 ## License
 
 Apache-2.0
