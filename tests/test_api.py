@@ -3,7 +3,11 @@ from pathlib import Path
 import fitz
 
 from legal_chunking import chunk_pdf, chunk_text
-from legal_chunking.extract.pdf import _find_repeated_page_noise, _normalize_page_raw_text
+from legal_chunking.extract.pdf import (
+    _find_repeated_leading_header_fingerprints,
+    _find_repeated_page_noise,
+    _normalize_page_raw_text,
+)
 from legal_chunking.hashing import compute_semantic_hash
 from legal_chunking.models import LegalUnitType
 from legal_chunking.normalize import normalize_chunk_text, normalize_extracted_text
@@ -227,6 +231,18 @@ def test_find_repeated_page_noise_keeps_short_repeated_headers_but_not_rule_mark
     assert "1." not in repeated_noise
 
 
+def test_find_repeated_leading_header_fingerprints_normalizes_repeated_variants() -> None:
+    fingerprints = _find_repeated_leading_header_fingerprints(
+        [
+            ["v سُلطة تنظيم", "األصول االفتراضية", "Article 1. General provisions"],
+            ["x سلطة تنظيم", "الأصول الافتراضية", "Article 2. General provisions"],
+            ["z سلطة تنظيم", "الأصول الافتراضية", "Article 3. General provisions"],
+        ]
+    )
+
+    assert "سلطة تنظيم" in fingerprints
+
+
 def test_normalize_page_raw_text_keeps_enumerated_content_outside_heading_detection() -> None:
     raw = "\n".join(
         [
@@ -245,6 +261,25 @@ def test_normalize_page_raw_text_keeps_enumerated_content_outside_heading_detect
             "2. Licensed entities must maintain independent oversight.",
         ]
     )
+
+
+def test_normalize_page_raw_text_drops_contextual_junk_prefix_before_header() -> None:
+    raw = "\n".join(
+        [
+            "v",
+            "سُلطة تنظيم",
+            "األصول االفتراضية",
+            "Article 1. General provisions",
+        ]
+    )
+
+    normalized = _normalize_page_raw_text(
+        raw,
+        profile="generic",
+        repeated_fingerprints={"سلطة تنظيم", "األصول االفتراضية"},
+    )
+
+    assert normalized == "Article 1. General provisions"
 
 
 def test_normalize_extracted_text_preserves_paragraph_boundaries() -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,17 +17,6 @@ _ALPHA_MARKER_ONLY_RE = re.compile(r"^[A-Z]\.$")
 _TOC_LEADER_RE = re.compile(r"\.{5,}\s*\d+\s*$")
 _EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b")
 _TERMINAL_PUNCTUATION = (".", "!", "?", ":", ";")
-_LEADING_HEADER_MARKERS = (
-    "virtual assets regulatory authority",
-    "صندوق بريد",
-    "سُلطة تنظيم",
-    "سلطة تنظيم",
-    "سلطة تنظيم الأصول الافتراضية",
-    "سُلطة تنظيم الأصول الافتراضية",
-    "األصول االفتراضية",
-)
-
-
 @dataclass(slots=True, frozen=True)
 class PdfPageText:
     page_number: int
@@ -52,8 +42,19 @@ def _find_repeated_page_noise(page_lines: list[list[str]]) -> set[str]:
     return {line for line, count in counts.items() if count >= 3}
 
 
+def _find_repeated_leading_header_fingerprints(page_lines: list[list[str]]) -> set[str]:
+    counts: dict[str, int] = {}
+    for lines in page_lines:
+        candidates = [_header_fragment_fingerprint(line) for line in lines[:8]]
+        for fingerprint in set(candidate for candidate in candidates if candidate):
+            counts[fingerprint] = counts.get(fingerprint, 0) + 1
+    return {fingerprint for fingerprint, count in counts.items() if count >= 3}
+
+
 def _is_repeated_noise_candidate(line: str) -> bool:
     stripped = (line or "").strip()
+    if len(stripped) == 1 and stripped.isalpha():
+        return True
     if len(stripped) < 8:
         return False
     if _PAGE_NUMBER_LINE_RE.match(stripped):
@@ -63,6 +64,32 @@ def _is_repeated_noise_candidate(line: str) -> bool:
     if _TOC_LEADER_RE.search(stripped):
         return False
     return True
+
+
+def _contains_arabic(text: str) -> bool:
+    return any("\u0600" <= char <= "\u06ff" for char in text)
+
+
+def _normalize_header_fragment_text(line: str) -> str:
+    normalized = unicodedata.normalize("NFKC", (line or "").strip())
+    normalized = "".join(
+        char for char in normalized if not unicodedata.combining(char)
+    )
+    normalized = re.sub(r"[ \t]+", " ", normalized).strip()
+    if re.match(r"^[A-Za-z]\s+", normalized):
+        candidate = normalized[2:].strip()
+        if candidate and _contains_arabic(candidate):
+            normalized = candidate
+    return normalized
+
+
+def _header_fragment_fingerprint(line: str) -> str:
+    normalized = _normalize_header_fragment_text(line)
+    if len(normalized) < 4:
+        return ""
+    if _PAGE_NUMBER_LINE_RE.match(normalized):
+        return ""
+    return normalized.lower()
 
 
 def _is_running_header_line(line: str) -> bool:
@@ -86,34 +113,36 @@ def _is_leading_header_fragment(
     line: str,
     *,
     repeated_noise: set[str] | None = None,
+    repeated_fingerprints: set[str] | None = None,
 ) -> bool:
     stripped = (line or "").strip()
-    lowered = stripped.lower()
     if not stripped:
         return False
     if stripped in (repeated_noise or set()):
         return True
-    if len(stripped) > 48 or any(punct in stripped for punct in _TERMINAL_PUNCTUATION):
-        return False
-    return any(lowered.startswith(marker) for marker in _LEADING_HEADER_MARKERS)
+    fingerprint = _header_fragment_fingerprint(stripped)
+    return bool(fingerprint and fingerprint in (repeated_fingerprints or set()))
 
 
 def _trim_leading_header_fragments(
     lines: list[str],
     *,
     repeated_noise: set[str] | None = None,
+    repeated_fingerprints: set[str] | None = None,
 ) -> list[str]:
     start = 0
-    if (
-        lines
-        and len(lines[0].strip()) == 1
-        and lines[0].strip().isalpha()
-        and (repeated_noise or set())
-    ):
-        start = 1
-    while start < len(lines) and start < 2 and _is_leading_header_fragment(
+    if lines and len(lines[0].strip()) == 1 and lines[0].strip().isalpha():
+        next_line = lines[1] if len(lines) > 1 else ""
+        if _is_leading_header_fragment(
+            next_line,
+            repeated_noise=repeated_noise,
+            repeated_fingerprints=repeated_fingerprints,
+        ):
+            start = 1
+    while start < len(lines) and start < 4 and _is_leading_header_fragment(
         lines[start],
         repeated_noise=repeated_noise,
+        repeated_fingerprints=repeated_fingerprints,
     ):
         start += 1
     return lines[start:]
@@ -208,6 +237,7 @@ def _normalize_page_raw_text(
     *,
     profile: str,
     repeated_noise: set[str] | None = None,
+    repeated_fingerprints: set[str] | None = None,
 ) -> str:
     raw = (raw or "").replace("\r", "\n")
     lines = [_normalize_line_text(line) for line in raw.split("\n")]
@@ -218,7 +248,11 @@ def _normalize_page_raw_text(
         and line not in (repeated_noise or set())
         and not _is_running_header_line(line)
     ]
-    lines = _trim_leading_header_fragments(lines, repeated_noise=repeated_noise)
+    lines = _trim_leading_header_fragments(
+        lines,
+        repeated_noise=repeated_noise,
+        repeated_fingerprints=repeated_fingerprints,
+    )
     if sum(1 for line in lines if _TOC_LEADER_RE.search(line)) >= 2:
         return ""
     lines = _merge_marker_lines(lines)
@@ -286,11 +320,15 @@ def extract_pdf_pages(path: str | Path, *, profile: str = "generic") -> list[Pdf
                 normalized_lines
             )
         repeated_noise = _find_repeated_page_noise(normalized_line_pages)
+        repeated_header_fingerprints = _find_repeated_leading_header_fingerprints(
+            normalized_line_pages
+        )
         for page_number, raw in raw_pages:
             normalized = _normalize_page_raw_text(
                 raw,
                 profile=profile,
                 repeated_noise=repeated_noise,
+                repeated_fingerprints=repeated_header_fingerprints,
             )
             if not normalized:
                 continue
