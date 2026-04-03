@@ -3,7 +3,7 @@ from pathlib import Path
 import fitz
 
 from legal_chunking import chunk_pdf, chunk_text
-from legal_chunking.extract.pdf import _normalize_page_raw_text
+from legal_chunking.extract.pdf import _find_repeated_page_noise, _normalize_page_raw_text
 from legal_chunking.hashing import compute_semantic_hash
 from legal_chunking.models import LegalUnitType
 from legal_chunking.normalize import normalize_chunk_text, normalize_extracted_text
@@ -178,6 +178,53 @@ def test_normalize_page_raw_text_preserves_non_header_arabic_content() -> None:
 
     assert normalized.startswith("دبي market participants")
     assert "Article 1. General provisions" in normalized
+
+
+def test_normalize_page_raw_text_does_not_drop_marker_without_repetition() -> None:
+    raw = "\n".join(
+        [
+            "Virtual Assets Regulatory Authority licensing conditions apply.",
+            "Article 1. General provisions",
+        ]
+    )
+
+    normalized = _normalize_page_raw_text(raw, profile="generic")
+
+    assert normalized.startswith("Virtual Assets Regulatory Authority licensing conditions apply.")
+    assert "Article 1. General provisions" in normalized
+
+
+def test_normalize_page_raw_text_trims_repeated_leading_header_noise() -> None:
+    raw = "\n".join(
+        [
+            "Virtual Assets Regulatory Authority",
+            "Article 1. General provisions",
+            "Body of article one.",
+        ]
+    )
+
+    normalized = _normalize_page_raw_text(
+        raw,
+        profile="generic",
+        repeated_noise={"Virtual Assets Regulatory Authority"},
+    )
+
+    assert normalized == "Article 1. General provisions\nBody of article one."
+
+
+def test_find_repeated_page_noise_keeps_short_repeated_headers_but_not_rule_markers() -> None:
+    repeated_noise = _find_repeated_page_noise(
+        [
+            ["araconnect@vara.ae", ":صندوق بريد9292", "دبي، اإلمارات العربية المتحدة -", "1."],
+            ["araconnect@vara.ae", ":صندوق بريد9292", "دبي، اإلمارات العربية المتحدة -", "2."],
+            ["araconnect@vara.ae", ":صندوق بريد9292", "دبي، اإلمارات العربية المتحدة -", "3."],
+        ]
+    )
+
+    assert "araconnect@vara.ae" in repeated_noise
+    assert ":صندوق بريد9292" in repeated_noise
+    assert "دبي، اإلمارات العربية المتحدة -" in repeated_noise
+    assert "1." not in repeated_noise
 
 
 def test_normalize_page_raw_text_keeps_enumerated_content_outside_heading_detection() -> None:
