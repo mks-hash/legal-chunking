@@ -408,6 +408,7 @@ def test_extract_guidance_point_metadata_recovers_tail_case_reference() -> None:
             "от 12 декабря 2023 г. № 18-КГ23-155-К4"
         ),
         point_number="17",
+        profile="ru",
     )
 
     assert metadata.source_case_reference == "от 12 декабря 2023 г. № 18-КГ23-155-К4"

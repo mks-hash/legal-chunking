@@ -13,5 +13,24 @@
   "fallback": {
     "max_chars": 1200,
     "overlap_chars": 120
+  },
+  "guidance_metadata": {
+    "trailing_note_markers": [
+      "См. также"
+    ],
+    "source_reference_prefixes": [
+      "Определение"
+    ],
+    "court_aliases": [
+      {
+        "label": "Верховный Суд РФ",
+        "aliases": [
+          "Судебной коллегии Верховного Суда РФ",
+          "Судебная коллегия Верховного Суда РФ",
+          "Верховного Суда РФ",
+          "Верховный Суд РФ"
+        ]
+      }
+    ]
   }
 }
