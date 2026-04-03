@@ -97,7 +97,12 @@ def test_noncanonical_other_heading_is_promoted_to_root_level() -> None:
 def test_assemble_sections_builds_guidance_point_sections_from_ru_review_fixture() -> None:
     text = (FIXTURES_DIR / "review_ru_guidance.txt").read_text(encoding="utf-8")
 
-    sections = assemble_sections(text, profile="ru", chunk_policy="guidance")
+    sections = assemble_sections(
+        text,
+        profile="ru",
+        chunk_policy="guidance",
+        doc_kind="court_guidance",
+    )
 
     assert [section.title for section in sections] == ["Document", "Point 17", "Point 18"]
     assert sections[0].section_type == "document_root"

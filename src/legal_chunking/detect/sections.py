@@ -42,6 +42,7 @@ def assemble_sections(
     *,
     profile: str = "generic",
     chunk_policy: str = "default",
+    doc_kind: str | None = None,
     source_name: str = "<memory>",
     trace: TraceCollector | None = None,
 ) -> list[Section]:
@@ -54,6 +55,7 @@ def assemble_sections(
         guidance_sections = _assemble_guidance_sections(
             normalized,
             profile=profile,
+            doc_kind=doc_kind,
             source_name=source_name,
             trace=trace,
         )
@@ -165,6 +167,7 @@ def _assemble_guidance_sections(
     text: str,
     *,
     profile: str,
+    doc_kind: str | None,
     source_name: str,
     trace: TraceCollector | None = None,
 ) -> list[Section] | None:
@@ -233,6 +236,8 @@ def _assemble_guidance_sections(
             block.text,
             point_number=block.point_number,
             profile=profile,
+            doc_kind=doc_kind,
+            extractor_scope="review_point",
         )
         if trace is not None:
             trace.emit(

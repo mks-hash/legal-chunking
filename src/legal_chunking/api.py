@@ -45,6 +45,7 @@ def chunk_text(
         profile=resolved_profile.code,
         source_name=source_name,
         chunk_policy=chunk_policy,
+        doc_kind=doc_kind,
         trace=trace_collector,
     )
     chunks = build_chunks(

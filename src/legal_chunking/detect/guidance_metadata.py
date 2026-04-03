@@ -49,11 +49,17 @@ def extract_guidance_point_metadata(
     *,
     point_number: str | None,
     profile: str = "generic",
+    doc_kind: str | None = None,
+    extractor_scope: str = "review_point",
 ) -> GuidancePointMetadata:
     cleaned = (text or "").strip()
     if not cleaned:
         return GuidancePointMetadata(point_number=point_number)
-    config = _load_guidance_metadata_config(profile)
+    config = _load_guidance_metadata_config(
+        profile,
+        doc_kind=(doc_kind or "").strip().lower() or None,
+        extractor_scope=extractor_scope,
+    )
     metadata_view = _strip_trailing_guidance_note(cleaned, config)
     source_case = _parse_source_case_reference(metadata_view, config=config)
 
@@ -66,13 +72,23 @@ def extract_guidance_point_metadata(
     )
 
 
-@lru_cache(maxsize=16)
-def _load_guidance_metadata_config(profile: str) -> _GuidanceMetadataConfig:
+@lru_cache(maxsize=32)
+def _load_guidance_metadata_config(
+    profile: str,
+    *,
+    doc_kind: str | None,
+    extractor_scope: str,
+) -> _GuidanceMetadataConfig:
     payload = resolve_profile(profile).guidance_patterns
+    extractor_payload = _resolve_guidance_extractor_payload(
+        payload,
+        doc_kind=doc_kind,
+        extractor_scope=extractor_scope,
+    )
 
-    prefixes = _normalize_string_list(payload.get("source_reference_prefixes"))
-    note_markers = _normalize_string_list(payload.get("trailing_note_markers"))
-    court_aliases = payload.get("court_aliases")
+    prefixes = _normalize_string_list(extractor_payload.get("source_reference_prefixes"))
+    note_markers = _normalize_string_list(extractor_payload.get("trailing_note_markers"))
+    court_aliases = extractor_payload.get("court_aliases")
 
     source_reference_pattern = _compile_source_reference_pattern(prefixes)
     trailing_note_pattern = _compile_trailing_note_pattern(note_markers)
@@ -82,6 +98,30 @@ def _load_guidance_metadata_config(profile: str) -> _GuidanceMetadataConfig:
         trailing_note_pattern=trailing_note_pattern,
         court_patterns=court_patterns,
     )
+
+
+def _resolve_guidance_extractor_payload(
+    payload: dict[str, Any],
+    *,
+    doc_kind: str | None,
+    extractor_scope: str,
+) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+
+    scope_map = payload.get("scope_map", {})
+    extractors = payload.get("extractors", {})
+    if not isinstance(scope_map, dict) or not isinstance(extractors, dict):
+        return {}
+
+    scope_key = f"{doc_kind}:{extractor_scope}" if doc_kind else extractor_scope
+    extractor_id = str(scope_map.get(scope_key) or "").strip()
+    if not extractor_id and doc_kind:
+        extractor_id = str(scope_map.get(doc_kind) or "").strip()
+    if not extractor_id:
+        extractor_id = str(scope_map.get(extractor_scope) or "").strip()
+    extractor_payload = extractors.get(extractor_id, {})
+    return extractor_payload if isinstance(extractor_payload, dict) else {}
 
 
 def _parse_source_case_reference(
