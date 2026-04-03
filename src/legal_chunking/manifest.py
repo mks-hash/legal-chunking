@@ -17,7 +17,7 @@ class ProfileAssetPointers:
     heading_patterns: str
     numbering_markers: str
     chunking_policy: str
-    guidance_patterns: str = ""
+    guidance_extractors: str = ""
 
 
 @dataclass(slots=True)
@@ -112,7 +112,7 @@ def _parse_manifest(payload: dict[str, Any]) -> AssetManifest:
             heading_patterns=str(assets.get("heading_patterns") or ""),
             numbering_markers=str(assets.get("numbering_markers") or ""),
             chunking_policy=str(assets.get("chunking_policy") or ""),
-            guidance_patterns=str(assets.get("guidance_patterns") or ""),
+            guidance_extractors=str(assets.get("guidance_extractors") or ""),
         )
         profiles[code] = ProfileManifest(
             code=code,

@@ -16,7 +16,7 @@ class ResolvedProfile:
     heading_patterns: dict[str, Any]
     numbering_markers: dict[str, Any]
     chunking_policy: dict[str, Any]
-    guidance_patterns: dict[str, Any]
+    guidance_extractors: dict[str, Any]
     doc_families: list[ReferenceDocFamily]
 
 
@@ -51,9 +51,9 @@ def resolve_profile(profile: str) -> ResolvedProfile:
             heading_patterns=load_asset_json(direct.assets.heading_patterns),
             numbering_markers=load_asset_json(direct.assets.numbering_markers),
             chunking_policy=load_asset_json(direct.assets.chunking_policy),
-            guidance_patterns=(
-                load_asset_json(direct.assets.guidance_patterns)
-                if direct.assets.guidance_patterns
+            guidance_extractors=(
+                load_asset_json(direct.assets.guidance_extractors)
+                if direct.assets.guidance_extractors
                 else {}
             ),
             doc_families=list(direct.reference.doc_families) if direct.reference else [],
@@ -69,9 +69,9 @@ def resolve_profile(profile: str) -> ResolvedProfile:
                 heading_patterns=load_asset_json(candidate.assets.heading_patterns),
                 numbering_markers=load_asset_json(candidate.assets.numbering_markers),
                 chunking_policy=load_asset_json(candidate.assets.chunking_policy),
-                guidance_patterns=(
-                    load_asset_json(candidate.assets.guidance_patterns)
-                    if candidate.assets.guidance_patterns
+                guidance_extractors=(
+                    load_asset_json(candidate.assets.guidance_extractors)
+                    if candidate.assets.guidance_extractors
                     else {}
                 ),
                 doc_families=list(candidate.reference.doc_families) if candidate.reference else [],
