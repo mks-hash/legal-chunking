@@ -6,7 +6,8 @@ import fitz
 from legal_chunking import chunk_pdf, chunk_text
 from legal_chunking.cli import main as cli_main
 from legal_chunking.detect.definitions import parse_definition_entries
-from legal_chunking.detect.guidance import extract_guidance_point_metadata, normalize_guidance_text
+from legal_chunking.detect.guidance_metadata import extract_guidance_point_metadata
+from legal_chunking.detect.guidance_normalization import normalize_guidance_text
 from legal_chunking.detect.headings import detect_heading
 from legal_chunking.extract.pdf import (
     _find_repeated_leading_header_fingerprints,

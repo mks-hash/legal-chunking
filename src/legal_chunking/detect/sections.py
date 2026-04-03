@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import hashlib
 
-from legal_chunking.detect.guidance import (
-    extract_guidance_point_metadata,
-    normalize_guidance_text,
-    split_guidance_blocks,
-)
+from legal_chunking.detect.guidance import split_guidance_blocks
+from legal_chunking.detect.guidance_metadata import extract_guidance_point_metadata
+from legal_chunking.detect.guidance_normalization import normalize_guidance_text
 from legal_chunking.detect.headings import HeadingMatch, detect_heading
 from legal_chunking.models import LegalUnitType, Section
 from legal_chunking.tracing import TraceCollector, TraceStage
