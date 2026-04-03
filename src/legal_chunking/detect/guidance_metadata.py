@@ -68,9 +68,7 @@ def extract_guidance_point_metadata(
 
 @lru_cache(maxsize=16)
 def _load_guidance_metadata_config(profile: str) -> _GuidanceMetadataConfig:
-    payload = resolve_profile(profile).chunking_policy.get("guidance_metadata", {})
-    if not isinstance(payload, dict):
-        payload = {}
+    payload = resolve_profile(profile).guidance_patterns
 
     prefixes = _normalize_string_list(payload.get("source_reference_prefixes"))
     note_markers = _normalize_string_list(payload.get("trailing_note_markers"))
