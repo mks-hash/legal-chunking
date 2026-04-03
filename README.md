@@ -10,6 +10,22 @@ The project is intentionally focused on one narrow problem:
 - split documents by logical boundaries instead of fixed character windows
 - return stable chunks with structured metadata for downstream processing
 
+## CLI
+
+The package includes a small inspectable CLI:
+
+```bash
+legal-chunking chunk --text "Article 1. General provisions" --profile generic
+legal-chunking structure --path ./rulebook.txt --profile ae --doc-kind primary_legislation
+legal-chunking explain --path ./rulebook.pdf --profile ae --doc-kind primary_legislation
+```
+
+Command contracts:
+
+- `chunk` emits chunk metadata only
+- `structure` emits detected sections only
+- `explain` emits staged trace events only
+
 ## Status
 
 This repository is in early bootstrap stage.

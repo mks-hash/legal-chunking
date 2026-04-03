@@ -1,8 +1,10 @@
+import json
 from pathlib import Path
 
 import fitz
 
 from legal_chunking import chunk_pdf, chunk_text
+from legal_chunking.cli import main as cli_main
 from legal_chunking.extract.pdf import (
     _find_repeated_leading_header_fingerprints,
     _find_repeated_page_noise,
@@ -525,3 +527,103 @@ def test_chunk_text_trace_reports_structure_and_chunk_decisions() -> None:
         "section": "Section A. General principles",
         "count": 2,
     }
+
+
+def test_cli_chunk_outputs_chunks_only(capsys) -> None:
+    exit_code = cli_main(
+        [
+            "chunk",
+            "--text",
+            "Article 1. General provisions\nBody of article one.",
+            "--profile",
+            "generic",
+            "--doc-kind",
+            "primary_legislation",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["chunk_policy"] == "statute"
+    assert "sections" not in payload
+    assert "trace" not in payload
+    assert [chunk["section_title"] for chunk in payload["chunks"]] == [
+        "Article 1. General provisions"
+    ]
+
+
+def test_cli_structure_outputs_sections_only(capsys) -> None:
+    exit_code = cli_main(
+        [
+            "structure",
+            "--text",
+            "Part I - Compliance Management\nA. General principles\n1. Maintain controls.",
+            "--profile",
+            "ae",
+            "--doc-kind",
+            "primary_legislation",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert "chunks" not in payload
+    assert "trace" not in payload
+    section_titles = [section["title"] for section in payload["sections"]]
+    assert section_titles[:3] == [
+        "Document",
+        "Part I. Compliance Management",
+        "Section A. General principles",
+    ]
+    assert "Section 1. Maintain controls." in section_titles
+
+
+def test_cli_explain_outputs_trace_only(capsys) -> None:
+    exit_code = cli_main(
+        [
+            "explain",
+            "--text",
+            "Part I - Compliance Management\nA. General principles\n1. Maintain controls.",
+            "--profile",
+            "ae",
+            "--doc-kind",
+            "primary_legislation",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert "sections" not in payload
+    assert "chunks" not in payload
+    assert payload["trace"]["events"][0]["type"] == "chunk_policy_selected"
+    assert payload["trace"]["events"][0]["stage"] == TraceStage.CHUNK
+
+
+def test_cli_chunk_reads_text_file_path(tmp_path: Path, capsys) -> None:
+    text_path = tmp_path / "rulebook.txt"
+    text_path.write_text(
+        "Schedule 1 - Definitions\n"
+        '"Client Money" means money held on behalf of a client.\n',
+        encoding="utf-8",
+    )
+
+    exit_code = cli_main(
+        [
+            "chunk",
+            "--path",
+            str(text_path),
+            "--profile",
+            "ae",
+            "--doc-kind",
+            "primary_legislation",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["source_name"] == "rulebook.txt"
+    assert payload["chunks"][0]["definition_term"] == "Client Money"
