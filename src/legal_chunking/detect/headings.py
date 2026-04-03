@@ -33,6 +33,10 @@ LABEL_PREFIX = {
 
 
 GUIDANCE_BLOCKED_KINDS = {"article", "clause", "paragraph"}
+PREFIXED_EXPLICIT_HEADING_RE = re.compile(
+    r"^(?P<prefix>[IVXLCDM]+)\.\s+(?P<rest>(part|chapter|section|schedule)\b.+)$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(slots=True)
@@ -157,6 +161,16 @@ def detect_heading(
     heading = (line or "").strip()
     if not heading:
         return None
+
+    prefixed_match = PREFIXED_EXPLICIT_HEADING_RE.match(heading)
+    if prefixed_match:
+        explicit_heading = detect_heading(
+            prefixed_match.group("rest").strip(),
+            profile=profile,
+            chunk_policy=chunk_policy,
+        )
+        if explicit_heading is not None:
+            return explicit_heading
 
     for section_type, pattern in compile_heading_patterns(profile):
         match = pattern.match(heading)

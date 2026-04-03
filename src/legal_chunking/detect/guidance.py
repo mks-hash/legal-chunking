@@ -6,8 +6,10 @@ import re
 from dataclasses import dataclass
 
 RE_GUIDANCE_POINT_START = re.compile(
-    r"(?m)^(?:пункт\s+)?(?P<num>\d{1,3})\.\s+(?=[A-ZА-ЯЁ])",
-    re.IGNORECASE,
+    r"(?m)^(?:(?i:пункт)\s+)?(?P<num>\d{1,3})\.\s+(?=[A-ZА-ЯЁ])",
+)
+RE_INLINE_GUIDANCE_POINT_START = re.compile(
+    r"(?<!\n)[ \t]+(?P<num>\d{1,3})\.\s*\n(?=[A-ZА-ЯЁ])",
 )
 RE_STANDALONE_PAGE_NUMBER = re.compile(r"^\s*\d{1,3}\s*$")
 RE_FOOTNOTE_LINE = re.compile(r"^\s*\d{1,2}\s+[А-Яа-яA-Za-z].{0,160}$")
@@ -24,6 +26,11 @@ RE_SOURCE_CASE_DATE = re.compile(
     r"от\s+([0-9]{1,2}\s+[А-Яа-я]+(?:\s+[0-9]{4})?\s*г?\.?)",
     re.IGNORECASE,
 )
+RE_TAIL_CASE_REFERENCE = re.compile(
+    r"(от\s+[0-9]{1,2}\s+[А-Яа-я]+(?:\s+[0-9]{4})?\s*г?\.?\s*№\s*[A-Za-zА-Яа-я0-9\-\/]+)",
+    re.IGNORECASE,
+)
+RE_TRAILING_SEE_ALSO_NOTE = re.compile(r"\b\d{1,2}\s+См\.\s+также\b.*$", re.IGNORECASE | re.DOTALL)
 
 
 @dataclass(slots=True, frozen=True)
@@ -101,8 +108,12 @@ def split_guidance_blocks(
 
 
 def normalize_guidance_text(text: str) -> str:
+    prepared = RE_INLINE_GUIDANCE_POINT_START.sub(
+        lambda match: f"\n{match.group('num')}. ",
+        text or "",
+    )
     kept: list[str] = []
-    for raw_line in (text or "").splitlines():
+    for raw_line in prepared.splitlines():
         stripped = raw_line.strip()
         if not stripped:
             if kept and kept[-1] != "":
@@ -126,11 +137,16 @@ def extract_guidance_point_metadata(
     cleaned = (text or "").strip()
     if not cleaned:
         return GuidancePointMetadata(point_number=point_number)
+    metadata_view = RE_TRAILING_SEE_ALSO_NOTE.sub("", cleaned).strip()
 
-    source_reference_match = RE_SOURCE_CASE_REFERENCE.search(cleaned)
+    source_reference_match = RE_SOURCE_CASE_REFERENCE.search(metadata_view)
     source_case_reference = (
         source_reference_match.group(1).strip() if source_reference_match else None
     )
+    if source_case_reference is None:
+        tail_reference_matches = list(RE_TAIL_CASE_REFERENCE.finditer(metadata_view))
+        if tail_reference_matches:
+            source_case_reference = tail_reference_matches[-1].group(1).strip()
     source_case_number = None
     source_case_date = None
     source_case_court = None
@@ -145,6 +161,8 @@ def extract_guidance_point_metadata(
             source_case_court = "Судебная коллегия Верховного Суда РФ"
         elif "Верховного Суда" in source_case_reference:
             source_case_court = "Верховный Суд РФ"
+    if source_case_court is None and "Верховного Суда РФ" in metadata_view:
+        source_case_court = "Верховный Суд РФ"
 
     return GuidancePointMetadata(
         point_number=point_number,
