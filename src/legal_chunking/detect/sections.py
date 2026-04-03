@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import hashlib
 
-from legal_chunking.detect.guidance import (
-    extract_guidance_point_metadata,
-    normalize_guidance_text,
-    split_guidance_blocks,
-)
+from legal_chunking.detect.guidance import split_guidance_blocks
+from legal_chunking.detect.guidance_metadata import extract_guidance_point_metadata
+from legal_chunking.detect.guidance_normalization import normalize_guidance_text
 from legal_chunking.detect.headings import HeadingMatch, detect_heading
 from legal_chunking.models import LegalUnitType, Section
 from legal_chunking.tracing import TraceCollector, TraceStage
@@ -44,6 +42,7 @@ def assemble_sections(
     *,
     profile: str = "generic",
     chunk_policy: str = "default",
+    doc_kind: str | None = None,
     source_name: str = "<memory>",
     trace: TraceCollector | None = None,
 ) -> list[Section]:
@@ -55,6 +54,8 @@ def assemble_sections(
     if chunk_policy == "guidance":
         guidance_sections = _assemble_guidance_sections(
             normalized,
+            profile=profile,
+            doc_kind=doc_kind,
             source_name=source_name,
             trace=trace,
         )
@@ -165,6 +166,8 @@ def assemble_sections(
 def _assemble_guidance_sections(
     text: str,
     *,
+    profile: str,
+    doc_kind: str | None,
     source_name: str,
     trace: TraceCollector | None = None,
 ) -> list[Section] | None:
@@ -229,7 +232,13 @@ def _assemble_guidance_sections(
         path_key = tuple(path)
         occurrence = path_occurrences.get(path_key, 0) + 1
         path_occurrences[path_key] = occurrence
-        metadata = extract_guidance_point_metadata(block.text, point_number=block.point_number)
+        metadata = extract_guidance_point_metadata(
+            block.text,
+            point_number=block.point_number,
+            profile=profile,
+            doc_kind=doc_kind,
+            extractor_scope="review_point",
+        )
         if trace is not None:
             trace.emit(
                 TraceStage.ASSEMBLE,

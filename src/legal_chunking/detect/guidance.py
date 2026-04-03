@@ -1,4 +1,4 @@
-"""Guidance/review point detection and safe metadata extraction."""
+"""Guidance/review point block detection."""
 
 from __future__ import annotations
 
@@ -6,22 +6,10 @@ import re
 from dataclasses import dataclass
 
 RE_GUIDANCE_POINT_START = re.compile(
-    r"(?m)^(?:пункт\s+)?(?P<num>\d{1,3})\.\s+(?=[A-ZА-ЯЁ])",
-    re.IGNORECASE,
+    r"(?m)^(?:(?i:пункт)\s+)?(?P<num>\d{1,3})\.\s+(?=[A-ZА-ЯЁ])",
 )
-RE_STANDALONE_PAGE_NUMBER = re.compile(r"^\s*\d{1,3}\s*$")
-RE_FOOTNOTE_LINE = re.compile(r"^\s*\d{1,2}\s+[А-Яа-яA-Za-z].{0,160}$")
 RE_GUIDANCE_POINT_CITATION_PREFIX = re.compile(
     r"^(определение\s+судебной\s+коллегии|см\.\s+также)\b",
-    re.IGNORECASE,
-)
-RE_SOURCE_CASE_REFERENCE = re.compile(
-    r"(Определение\s+[^.\n]{0,160}?(?:от\s+[0-9]{1,2}\s+[А-Яа-я]+(?:\s+[0-9]{4})?\s*г?\.?)?\s*№\s*[A-Za-zА-Яа-я0-9\-\/]+\.?)",
-    re.IGNORECASE,
-)
-RE_SOURCE_CASE_NUMBER = re.compile(r"№\s*([A-Za-zА-Яа-я0-9\-\/]+)")
-RE_SOURCE_CASE_DATE = re.compile(
-    r"от\s+([0-9]{1,2}\s+[А-Яа-я]+(?:\s+[0-9]{4})?\s*г?\.?)",
     re.IGNORECASE,
 )
 
@@ -31,15 +19,6 @@ class GuidanceBlock:
     method: str
     text: str
     point_number: str | None = None
-
-
-@dataclass(slots=True, frozen=True)
-class GuidancePointMetadata:
-    point_number: str | None
-    source_case_reference: str | None = None
-    source_case_number: str | None = None
-    source_case_date: str | None = None
-    source_case_court: str | None = None
 
 
 def split_guidance_blocks(
@@ -100,61 +79,6 @@ def split_guidance_blocks(
     return blocks if blocks else _paragraph_guidance_blocks(stripped)
 
 
-def normalize_guidance_text(text: str) -> str:
-    kept: list[str] = []
-    for raw_line in (text or "").splitlines():
-        stripped = raw_line.strip()
-        if not stripped:
-            if kept and kept[-1] != "":
-                kept.append("")
-            continue
-        if is_guidance_page_artifact_line(stripped):
-            continue
-        kept.append(stripped)
-    while kept and kept[-1] == "":
-        kept.pop()
-    if not kept:
-        return ""
-    return "\n".join(kept).strip()
-
-
-def extract_guidance_point_metadata(
-    text: str,
-    *,
-    point_number: str | None,
-) -> GuidancePointMetadata:
-    cleaned = (text or "").strip()
-    if not cleaned:
-        return GuidancePointMetadata(point_number=point_number)
-
-    source_reference_match = RE_SOURCE_CASE_REFERENCE.search(cleaned)
-    source_case_reference = (
-        source_reference_match.group(1).strip() if source_reference_match else None
-    )
-    source_case_number = None
-    source_case_date = None
-    source_case_court = None
-    if source_case_reference:
-        number_match = RE_SOURCE_CASE_NUMBER.search(source_case_reference)
-        if number_match:
-            source_case_number = number_match.group(1).strip()
-        date_match = RE_SOURCE_CASE_DATE.search(source_case_reference)
-        if date_match:
-            source_case_date = date_match.group(1).strip()
-        if "Судебной коллегии Верховного Суда" in source_case_reference:
-            source_case_court = "Судебная коллегия Верховного Суда РФ"
-        elif "Верховного Суда" in source_case_reference:
-            source_case_court = "Верховный Суд РФ"
-
-    return GuidancePointMetadata(
-        point_number=point_number,
-        source_case_reference=source_case_reference,
-        source_case_number=source_case_number,
-        source_case_date=source_case_date,
-        source_case_court=source_case_court,
-    )
-
-
 def _paragraph_guidance_blocks(text: str) -> list[GuidanceBlock]:
     paragraph_parts = [
         paragraph.strip()
@@ -165,19 +89,6 @@ def _paragraph_guidance_blocks(text: str) -> list[GuidanceBlock]:
         GuidanceBlock(method="guidance_paragraph", text=paragraph)
         for paragraph in paragraph_parts
     ]
-
-
-def is_guidance_page_artifact_line(line: str) -> bool:
-    stripped = (line or "").strip()
-    if not stripped:
-        return True
-    if RE_STANDALONE_PAGE_NUMBER.match(stripped):
-        return True
-    if RE_FOOTNOTE_LINE.match(stripped):
-        lower = stripped.lower()
-        if "далее" in lower or "сноск" in lower:
-            return True
-    return False
 
 
 def is_admissible_guidance_point_match(
@@ -205,11 +116,7 @@ def is_admissible_guidance_point_match(
 
 __all__ = [
     "GuidanceBlock",
-    "GuidancePointMetadata",
     "RE_GUIDANCE_POINT_START",
-    "extract_guidance_point_metadata",
     "is_admissible_guidance_point_match",
-    "is_guidance_page_artifact_line",
-    "normalize_guidance_text",
     "split_guidance_blocks",
 ]

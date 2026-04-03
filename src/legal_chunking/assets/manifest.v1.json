@@ -39,7 +39,8 @@
       "assets": {
         "heading_patterns": "heading_patterns/ru.v1.json",
         "numbering_markers": "numbering_markers/ru.v1.json",
-        "chunking_policy": "chunking_policy/ru.v1.json"
+        "chunking_policy": "chunking_policy/ru.v1.json",
+        "guidance_extractors": "guidance_extractors/ru_review_case_refs.v1.json"
       }
     },
     "us": {

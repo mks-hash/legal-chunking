@@ -1,8 +1,14 @@
+import json
 from pathlib import Path
 
 import fitz
 
 from legal_chunking import chunk_pdf, chunk_text
+from legal_chunking.cli import main as cli_main
+from legal_chunking.detect.definitions import parse_definition_entries
+from legal_chunking.detect.guidance_metadata import extract_guidance_point_metadata
+from legal_chunking.detect.guidance_normalization import normalize_guidance_text
+from legal_chunking.detect.headings import detect_heading
 from legal_chunking.extract.pdf import (
     _find_repeated_leading_header_fingerprints,
     _find_repeated_page_noise,
@@ -383,6 +389,36 @@ def test_chunk_text_builds_guidance_point_chunks_from_review_fixture() -> None:
     assert document.chunks[1].source_case_court == "Верховный Суд РФ"
 
 
+def test_normalize_guidance_text_recovers_inline_point_boundary_after_case_reference() -> None:
+    raw = (
+        "Предыдущая позиция суда. от 27 февраля 2024 г. № 5-КГ23-152-К2 7.\n"
+        "Потребитель вправе требовать возмещения убытков."
+    )
+
+    normalized = normalize_guidance_text(raw)
+
+    assert "№ 5-КГ23-152-К2\n7. Потребитель" in normalized
+
+
+def test_extract_guidance_point_metadata_recovers_tail_case_reference() -> None:
+    metadata = extract_guidance_point_metadata(
+        (
+            "17. Позиция суда по спору о страховании.\n"
+            "Судебная коллегия по гражданским делам Верховного Суда РФ указала следующее.\n"
+            "от 12 декабря 2023 г. № 18-КГ23-155-К4"
+        ),
+        point_number="17",
+        profile="ru",
+        doc_kind="court_guidance",
+        extractor_scope="review_point",
+    )
+
+    assert metadata.source_case_reference == "от 12 декабря 2023 г. № 18-КГ23-155-К4"
+    assert metadata.source_case_number == "18-КГ23-155-К4"
+    assert metadata.source_case_date == "12 декабря 2023 г."
+    assert metadata.source_case_court == "Верховный Суд РФ"
+
+
 def test_chunk_text_keeps_oversized_guidance_point_as_single_chunk() -> None:
     oversized_text = "\n".join(
         [
@@ -496,6 +532,40 @@ def test_chunk_text_splits_definition_schedule_into_definition_entries() -> None
     assert document.chunks[1].text.startswith("Sponsored VASP:")
 
 
+def test_parse_definition_entries_keeps_alias_terms_and_quoted_definition_targets() -> None:
+    text = (
+        'Term Definition "Ultimate Beneficial Owner" or "UBO" '
+        'has the meaning ascribed to it in the Company Rulebook. '
+        '"VA Wallet" has the meaning ascribed to the term '
+        '"Virtual Asset Wallet" in the Dubai VA Law. '
+        '"Virtual Asset" or "VA" has the meaning ascribed to it in the Dubai VA Law.'
+    )
+    entries = parse_definition_entries(
+        text
+    )
+
+    assert [entry.term for entry in entries] == [
+        "Ultimate Beneficial Owner / UBO",
+        "VA Wallet",
+        "Virtual Asset / VA",
+    ]
+    assert entries[1].definition == (
+        'has the meaning ascribed to the term "Virtual Asset Wallet" in the Dubai VA Law.'
+    )
+
+
+def test_detect_heading_prefers_explicit_part_after_roman_prefix() -> None:
+    heading = detect_heading(
+        "VII. Part VII – Sponsored VASPs",
+        profile="ae",
+        chunk_policy="statute",
+    )
+
+    assert heading is not None
+    assert heading.kind == "part"
+    assert heading.label == "Part VII. Sponsored VASPs"
+
+
 def test_chunk_text_trace_reports_structure_and_chunk_decisions() -> None:
     text = "\n".join(
         [
@@ -525,3 +595,103 @@ def test_chunk_text_trace_reports_structure_and_chunk_decisions() -> None:
         "section": "Section A. General principles",
         "count": 2,
     }
+
+
+def test_cli_chunk_outputs_chunks_only(capsys) -> None:
+    exit_code = cli_main(
+        [
+            "chunk",
+            "--text",
+            "Article 1. General provisions\nBody of article one.",
+            "--profile",
+            "generic",
+            "--doc-kind",
+            "primary_legislation",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["chunk_policy"] == "statute"
+    assert "sections" not in payload
+    assert "trace" not in payload
+    assert [chunk["section_title"] for chunk in payload["chunks"]] == [
+        "Article 1. General provisions"
+    ]
+
+
+def test_cli_structure_outputs_sections_only(capsys) -> None:
+    exit_code = cli_main(
+        [
+            "structure",
+            "--text",
+            "Part I - Compliance Management\nA. General principles\n1. Maintain controls.",
+            "--profile",
+            "ae",
+            "--doc-kind",
+            "primary_legislation",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert "chunks" not in payload
+    assert "trace" not in payload
+    section_titles = [section["title"] for section in payload["sections"]]
+    assert section_titles[:3] == [
+        "Document",
+        "Part I. Compliance Management",
+        "Section A. General principles",
+    ]
+    assert "Section 1. Maintain controls." in section_titles
+
+
+def test_cli_explain_outputs_trace_only(capsys) -> None:
+    exit_code = cli_main(
+        [
+            "explain",
+            "--text",
+            "Part I - Compliance Management\nA. General principles\n1. Maintain controls.",
+            "--profile",
+            "ae",
+            "--doc-kind",
+            "primary_legislation",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert "sections" not in payload
+    assert "chunks" not in payload
+    assert payload["trace"]["events"][0]["type"] == "chunk_policy_selected"
+    assert payload["trace"]["events"][0]["stage"] == TraceStage.CHUNK
+
+
+def test_cli_chunk_reads_text_file_path(tmp_path: Path, capsys) -> None:
+    text_path = tmp_path / "rulebook.txt"
+    text_path.write_text(
+        "Schedule 1 - Definitions\n"
+        '"Client Money" means money held on behalf of a client.\n',
+        encoding="utf-8",
+    )
+
+    exit_code = cli_main(
+        [
+            "chunk",
+            "--path",
+            str(text_path),
+            "--profile",
+            "ae",
+            "--doc-kind",
+            "primary_legislation",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["source_name"] == "rulebook.txt"
+    assert payload["chunks"][0]["definition_term"] == "Client Money"
