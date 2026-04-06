@@ -56,7 +56,7 @@ def test_chunk_pdf_extracts_text_and_chunks_pdf(tmp_path: Path) -> None:
     finally:
         document_writer.close()
 
-    document = chunk_pdf(pdf_path, profile="generic")
+    document = chunk_pdf(pdf_path, profile="generic", trace=True)
 
     assert document.source_name == "agreement.pdf"
     assert document.profile == "generic"
@@ -69,6 +69,15 @@ def test_chunk_pdf_extracts_text_and_chunks_pdf(tmp_path: Path) -> None:
         "Article 1. General provisions",
         "Article 2. Review procedure",
     ]
+    assert document.trace is not None
+    pdf_events = [event for event in document.trace.events if event.type == "pdf_line_classified"]
+    assert pdf_events
+    assert pdf_events[0].stage == TraceStage.EXTRACT
+    assert pdf_events[0].data["candidate_type"] == "PageNumberCandidate"
+    assert pdf_events[0].data["rule_id"] == "pdf.line.page_number"
+    decision_events = [event for event in document.trace.events if event.type == "pdf_line_decided"]
+    assert decision_events
+    assert decision_events[0].data["state_from"] == "front_matter"
 
 
 def test_chunk_pdf_preserves_guidance_policy_when_doc_kind_is_provided(tmp_path: Path) -> None:
@@ -668,6 +677,91 @@ def test_cli_explain_outputs_trace_only(capsys) -> None:
     assert "chunks" not in payload
     assert payload["trace"]["events"][0]["type"] == "chunk_policy_selected"
     assert payload["trace"]["events"][0]["stage"] == TraceStage.CHUNK
+
+
+def test_cli_review_outputs_human_readable_chunk_previews(capsys) -> None:
+    text = (
+        "Article 1. General provisions\nBody of article one.\n\n"
+        "Article 2. Scope\nBody of article two."
+    )
+    exit_code = cli_main(
+        [
+            "review",
+            "--text",
+            text,
+            "--profile",
+            "generic",
+            "--doc-kind",
+            "primary_legislation",
+            "--limit",
+            "2",
+            "--max-chars",
+            "40",
+        ]
+    )
+
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert "Source: <memory>" in output
+    assert "Sections" in output
+    assert "Chunks" in output
+    assert "[1] Article 1. General provisions | kind=article" in output
+    assert "method=statute_unit" in output
+    assert "preview: Article 1. General provisions Body of a…" in output
+
+
+def test_cli_review_writes_snapshot_to_output_file(tmp_path: Path, capsys) -> None:
+    output_path = tmp_path / "snapshots" / "review.txt"
+
+    exit_code = cli_main(
+        [
+            "review",
+            "--text",
+            "Point 1. Introductory guidance.\nPoint 2. Next guidance point.",
+            "--profile",
+            "ru",
+            "--doc-kind",
+            "court_guidance",
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    stdout = capsys.readouterr().out
+    content = output_path.read_text(encoding="utf-8")
+
+    assert exit_code == 0
+    assert stdout == ""
+    assert "Source: <memory>" in content
+    assert "Chunks" in content
+    assert "guidance_preamble" in content
+
+
+def test_cli_chunk_writes_json_to_output_file(tmp_path: Path, capsys) -> None:
+    output_path = tmp_path / "snapshots" / "chunks.json"
+
+    exit_code = cli_main(
+        [
+            "chunk",
+            "--text",
+            "Article 1. General provisions\nBody of article one.",
+            "--profile",
+            "generic",
+            "--doc-kind",
+            "primary_legislation",
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    stdout = capsys.readouterr().out
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+    assert exit_code == 0
+    assert stdout == ""
+    assert payload["chunk_policy"] == "statute"
+    assert payload["chunks"][0]["section_title"] == "Article 1. General provisions"
 
 
 def test_cli_chunk_reads_text_file_path(tmp_path: Path, capsys) -> None:
