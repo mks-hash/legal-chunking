@@ -1,0 +1,83 @@
+{
+  "source_name": "CELEX_32016R0679_EN_TXT.pdf",
+  "profile": "eu",
+  "language": "en",
+  "chunk_policy": "statute",
+  "chunks": [
+    {
+      "chunk_id": "chunk-6c7b50f39e93",
+      "text": "I (Legislative acts) REGULATIONS REGULATION (EU) 2016/679 OF THE EUROPEAN PARLIAMENT AND OF THE COUNCIL of 27 April 2016 on the protection of natural persons with regard to the processing of personal data and on the free movement of such data, and repealing Directive 95/46/EC (General Data Protection Regulation) (Text with EEA relevance) THE EUROPEAN PARLIAMENT AND THE COUNCIL OF THE EUROPEAN UNION, Having regard to the Treaty on the Functioning of the European Union, and in particular Article 16 thereof, Having regard to the proposal from the European Commission, After transmission of the draft legislative act to the national parliaments, Having regard to the opinion of the European Economic and Social Committee (1), Having regard to the opinion of the Committee of the Regions (2), Acting in accordance with the ordinary legislative procedure (3), Whereas:",
+      "order": 1,
+      "chunk_method": "statute_unit",
+      "page": null,
+      "section_id": "sec-a643e024fb4e",
+      "section_title": "Document",
+      "section_type": "document_root",
+      "metadata": {
+        "article_number": null,
+        "paragraph_number": null,
+        "point_number": null,
+        "legal_unit_type": null,
+        "legal_unit_number": null,
+        "source_case_reference": null,
+        "source_case_number": null,
+        "source_case_date": null,
+        "source_case_court": null,
+        "definition_term": null
+      },
+      "semantic_hash": "5a1217cc17c00db4baedd36b33ae285fa2054aa57c9d9acdbe220f03a8fed1ae",
+      "prev_chunk_id": null,
+      "next_chunk_id": "chunk-d3289eb5515e"
+    },
+    {
+      "chunk_id": "chunk-d3289eb5515e",
+      "text": "(1) The protection of natural persons in relation to the processing of personal data is a fundamental right. Article 8(1) of the Charter of Fundamental Rights of the European Union (the ‘Charter’) and Article 16(1) of the Treaty on the Functioning of the European Union (TFEU) provide that everyone has the right to the protection of personal data concerning him or her. (2) The principles of, and rules on the protection of natural persons with regard to the processing of their personal data should, whatever their nationality or residence, respect their fundamental rights and freedoms, in particular their right to the protection of personal data. This Regulation is intended to contribute to the accomplishment of an area of freedom, security and justice and of an economic union, to economic and social progress, to the strengthening and the convergence of the economies within the internal market, and to the well-being of natural persons.",
+      "order": 2,
+      "chunk_method": "statute_unit",
+      "page": null,
+      "section_id": "sec-a643e024fb4e",
+      "section_title": "Document",
+      "section_type": "document_root",
+      "metadata": {
+        "article_number": null,
+        "paragraph_number": null,
+        "point_number": null,
+        "legal_unit_type": null,
+        "legal_unit_number": null,
+        "source_case_reference": null,
+        "source_case_number": null,
+        "source_case_date": null,
+        "source_case_court": null,
+        "definition_term": null
+      },
+      "semantic_hash": "a5e37d98fc58dfe9106d12d5fd233c6bd85b9f09f6a527e54fbd4cbc5dac47b8",
+      "prev_chunk_id": "chunk-6c7b50f39e93",
+      "next_chunk_id": "chunk-20078b7e4c1e"
+    },
+    {
+      "chunk_id": "chunk-20078b7e4c1e",
+      "text": "(3) Directive 95/46/EC of the European Parliament and of the Council (4) seeks to harmonise the protection of fundamental rights and freedoms of natural persons in respect of processing activities and to ensure the free flow of personal data between Member States. (3) Position of the European Parliament of 12 March 2014 (not yet published in the Official Journal) and position of the Council at first reading of 8 April 2016 (not yet published in the Official Journal). Position of the European Parliament of 14 April 2016. (4) Directive 95/46/EC of the European Parliament and of the Council of 24 October 1995 on the protection of individuals with regard to the processing of personal data and on the free movement of such data (OJ L 281, 23.11.1995, p. 31).",
+      "order": 3,
+      "chunk_method": "statute_unit",
+      "page": null,
+      "section_id": "sec-a643e024fb4e",
+      "section_title": "Document",
+      "section_type": "document_root",
+      "metadata": {
+        "article_number": null,
+        "paragraph_number": null,
+        "point_number": null,
+        "legal_unit_type": null,
+        "legal_unit_number": null,
+        "source_case_reference": null,
+        "source_case_number": null,
+        "source_case_date": null,
+        "source_case_court": null,
+        "definition_term": null
+      },
+      "semantic_hash": "08269e334c2dfc281cb7b09f864b3af2f498f16e55de6d972683357dd2673e4a",
+      "prev_chunk_id": "chunk-d3289eb5515e",
+      "next_chunk_id": "chunk-89f0b6e897c3"
+    }
+  ]
+}
