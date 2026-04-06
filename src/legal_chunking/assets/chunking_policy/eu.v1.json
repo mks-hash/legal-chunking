@@ -24,6 +24,7 @@
       "merge_wrapped_headings": true
     },
     "chunk": {
+      "document_root_splitter": "eu_recitals",
       "article_splitter": "eu_article_subdivisions"
     },
     "heading": {
