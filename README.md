@@ -208,6 +208,85 @@ legal-chunking review \
   --output ./snapshots/plenum-ru-review.txt
 ```
 
+## CLI
+
+The package includes a small inspectable CLI:
+
+```bash
+legal-chunking chunk --text "Article 1. General provisions" --profile generic
+legal-chunking structure --path ./rulebook.txt --profile ae --doc-kind primary_legislation
+legal-chunking explain --path ./rulebook.pdf --profile ae --doc-kind primary_legislation
+legal-chunking review --path ./documents/gdpr.pdf --profile eu --limit 12
+legal-chunking review --path ./rulebook.pdf --profile ae --output ./snapshots/rulebook-review.txt
+```
+
+Command contracts:
+
+- `chunk` emits chunk metadata only
+- `structure` emits detected sections only
+- `explain` emits staged trace events only
+- `review` emits a human-readable section and chunk preview for manual inspection
+
+For real-document review, `review` is the fastest way to inspect chunk quality by eye:
+
+```bash
+legal-chunking review --path ./documents/us_federal_rules.pdf --profile us --limit 15 --max-chars 220
+legal-chunking review --path ./documents/vara_rules.pdf --profile ae --doc-kind primary_legislation --limit 20
+legal-chunking review --path ./documents/ru_plenum.pdf --profile ru --doc-kind court_guidance --limit 25
+```
+
+That output lets you inspect:
+
+- detected section titles and order
+- chunking method per chunk
+- short text previews for each chunk
+- total section and chunk counts per document
+
+All CLI commands also support `--output` for snapshot export.
+Use that for reproducible manual review and diffable artifacts:
+
+```bash
+mkdir -p ./snapshots
+
+legal-chunking review \
+  --path ./documents/gdpr.pdf \
+  --profile eu \
+  --limit 20 \
+  --max-chars 220 \
+  --output ./snapshots/gdpr-eu-review.txt
+
+legal-chunking review \
+  --path ./documents/us_federal_rules.pdf \
+  --profile us \
+  --limit 20 \
+  --max-chars 220 \
+  --output ./snapshots/frcp-us-review.txt
+
+legal-chunking review \
+  --path ./documents/vara_rules.pdf \
+  --profile ae \
+  --doc-kind primary_legislation \
+  --limit 20 \
+  --max-chars 220 \
+  --output ./snapshots/vara-ae-review.txt
+
+legal-chunking review \
+  --path ./documents/ru_consumer_review.pdf \
+  --profile ru \
+  --doc-kind court_guidance \
+  --limit 25 \
+  --max-chars 220 \
+  --output ./snapshots/consumer-review-ru-review.txt
+
+legal-chunking review \
+  --path ./documents/ru_plenum.pdf \
+  --profile ru \
+  --doc-kind court_guidance \
+  --limit 25 \
+  --max-chars 220 \
+  --output ./snapshots/plenum-ru-review.txt
+```
+
 ## Status
 
 This repository is in pre-alpha.
@@ -281,6 +360,12 @@ pip install -e .[dev]
 pytest -q
 ruff check .
 ruff format --check .
+```
+
+PDF extraction uses an optional dependency:
+
+```bash
+pip install legal-chunking[pdf]
 ```
 
 PDF extraction uses an optional dependency:
