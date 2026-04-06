@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-03T00:00:00Z",
+  "profiles": {
+    "generic": {
+      "enabled": true,
+      "aliases": ["default", "global", "generic"],
+      "language": null,
+      "assets": {
+        "heading_patterns": "heading_patterns/generic.v1.json",
+        "numbering_markers": "numbering_markers/generic.v1.json",
+        "chunking_policy": "chunking_policy/generic.v1.json",
+        "reference_patterns": "reference_patterns/generic.v1.json"
+      }
+    },
+    "ru": {
+      "enabled": true,
+      "aliases": ["ru", "ru-ru", "russia", "россия"],
+      "language": "ru",
+      "reference": {
+        "enabled": true,
+        "require_doc_family": true,
+        "match_mode": "family_first",
+        "doc_families": [
+          {"id": "konstitucia_rf", "kind": "constitutional_norm", "aliases": ["КРФ", "Конституция РФ", "Конституция Российской Федерации"]},
+          {"id": "gk_rf", "kind": "code", "aliases": ["ГК РФ", "Гражданский кодекс РФ"]},
+          {"id": "apk_rf", "kind": "code", "aliases": ["АПК РФ", "Арбитражный процессуальный кодекс РФ"]},
+          {"id": "gpk_rf", "kind": "code", "aliases": ["ГПК РФ", "Гражданский процессуальный кодекс РФ"]},
+          {"id": "kas_rf", "kind": "code", "aliases": ["КАС РФ", "Кодекс административного судопроизводства РФ"]},
+          {"id": "upk_rf", "kind": "code", "aliases": ["УПК РФ", "Уголовно-процессуальный кодекс РФ"]},
+          {"id": "uk_rf", "kind": "code", "aliases": ["УК РФ", "Уголовный кодекс РФ"]},
+          {"id": "koap_rf", "kind": "code", "aliases": ["КоАП РФ", "Кодекс РФ об административных правонарушениях"]},
+          {"id": "nk_rf", "kind": "code", "aliases": ["НК РФ", "Налоговый кодекс РФ"]},
+          {"id": "tk_rf", "kind": "code", "aliases": ["ТК РФ", "Трудовой кодекс РФ"]},
+          {"id": "sk_rf", "kind": "code", "aliases": ["СК РФ", "Семейный кодекс РФ"]},
+          {"id": "vs_plenum", "kind": "court_guidance", "aliases": ["Пленум ВС РФ", "Постановление Пленума Верховного Суда РФ"]},
+          {"id": "fed_law", "kind": "primary_legislation", "aliases": ["Федеральный закон №", "Федеральный закон N", "Федеральный закон от", "ФЗ №", "ФЗ N"]}
+        ]
+      },
+      "assets": {
+        "heading_patterns": "heading_patterns/ru.v1.json",
+        "numbering_markers": "numbering_markers/ru.v1.json",
+        "chunking_policy": "chunking_policy/ru.v1.json",
+        "guidance_extractors": "guidance_extractors/ru_review_case_refs.v1.json",
+        "reference_patterns": "reference_patterns/ru.v1.json"
+      }
+    },
+    "us": {
+      "enabled": true,
+      "aliases": ["us", "usa", "united states", "u.s."],
+      "language": "en",
+      "reference": {
+        "enabled": true,
+        "require_doc_family": true,
+        "match_mode": "family_first",
+        "doc_families": [
+          {"id": "usc", "kind": "code", "aliases": ["U.S.C.", "USC", "United States Code"]},
+          {"id": "cfr", "kind": "secondary_legislation", "aliases": ["CFR", "Code of Federal Regulations"]},
+          {"id": "frcp", "kind": "procedure_rules", "aliases": ["FRCP", "Federal Rules of Civil Procedure"]},
+          {"id": "bankruptcy_code", "kind": "code", "aliases": ["Bankruptcy Code", "U.S. Bankruptcy Code"]},
+          {"id": "scotus", "kind": "case_law", "aliases": ["SCOTUS", "Supreme Court of the United States"]},
+          {"id": "delaware_gcl", "kind": "primary_legislation", "aliases": ["DGCL", "Delaware General Corporation Law"]}
+        ]
+      },
+      "assets": {
+        "heading_patterns": "heading_patterns/us.v1.json",
+        "numbering_markers": "numbering_markers/us.v1.json",
+        "chunking_policy": "chunking_policy/us.v1.json",
+        "reference_patterns": "reference_patterns/us.v1.json"
+      }
+    },
+    "eu": {
+      "enabled": true,
+      "aliases": ["eu", "european union"],
+      "language": "en",
+      "reference": {
+        "enabled": true,
+        "require_doc_family": true,
+        "match_mode": "family_first",
+        "doc_families": [
+          {"id": "gdpr", "kind": "regulation", "aliases": ["GDPR", "General Data Protection Regulation"]},
+          {"id": "eu_regulation", "kind": "regulation", "aliases": ["Regulation (EU)", "EU Regulation"]},
+          {"id": "eu_directive", "kind": "directive", "aliases": ["Directive (EU)", "EU Directive"]},
+          {"id": "cjeu", "kind": "case_law", "aliases": ["CJEU", "Court of Justice of the European Union"]}
+        ]
+      },
+      "assets": {
+        "heading_patterns": "heading_patterns/eu.v1.json",
+        "numbering_markers": "numbering_markers/eu.v1.json",
+        "chunking_policy": "chunking_policy/eu.v1.json",
+        "reference_patterns": "reference_patterns/eu.v1.json"
+      }
+    },
+    "ae": {
+      "enabled": true,
+      "aliases": ["ae", "uae", "u.a.e.", "united arab emirates"],
+      "language": "en",
+      "reference": {
+        "enabled": true,
+        "require_doc_family": true,
+        "match_mode": "family_first",
+        "doc_families": [
+          {"id": "adgm_regulations", "kind": "regulatory_instrument", "aliases": ["ADGM", "Abu Dhabi Global Market"]},
+          {"id": "difc_law", "kind": "primary_legislation", "aliases": ["DIFC", "Dubai International Financial Centre", "DIFC Law", "DIFC Laws"]},
+          {"id": "dfsa", "kind": "regulatory_instrument", "aliases": ["DFSA", "Dubai Financial Services Authority"]},
+          {"id": "vara", "kind": "regulatory_instrument", "aliases": ["VARA", "Virtual Assets Regulatory Authority"]},
+          {"id": "cbuae", "kind": "regulatory_instrument", "aliases": ["CBUAE", "Central Bank of the UAE", "UAE Central Bank"]},
+          {"id": "uae_federal_law", "kind": "primary_legislation", "aliases": ["UAE Federal Law", "Federal Law No.", "Federal Decree-Law"]}
+        ]
+      },
+      "assets": {
+        "heading_patterns": "heading_patterns/ae.v1.json",
+        "numbering_markers": "numbering_markers/ae.v1.json",
+        "chunking_policy": "chunking_policy/ae.v1.json",
+        "reference_patterns": "reference_patterns/ae.v1.json"
+      }
+    }
+  }
+}

@@ -19,6 +19,9 @@ build/
 dist/
 *.egg-info/
 
+# Developer artifacts
+.develop
+
 # IDE
 .idea/
 .vscode/

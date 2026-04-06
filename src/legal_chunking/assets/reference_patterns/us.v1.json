@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "patterns": [
+    {
+      "scheme": "section",
+      "regex": "\\b\\d+\\s+U\\.?\\s*S\\.?\\s*C\\.?\\s*§+\\s*(?P<article>(?:[A-Za-z]\\.?\u005cs*)?\\d+[A-Za-z0-9()./-]*)",
+      "doc_family": "usc"
+    },
+    {
+      "scheme": "section",
+      "regex": "\\b\\d+\\s+C\\.?\\s*F\\.?\\s*R\\.?\\s*§+\\s*(?P<article>(?:[A-Za-z]\\.?\u005cs*)?\\d+[A-Za-z0-9()./-]*)",
+      "doc_family": "cfr"
+    }
+  ],
+  "doc_family_patterns": {
+    "usc": [
+      {
+        "scheme": "section",
+        "regex": "\\b\\d+\\s+U\\.?\\s*S\\.?\\s*C\\.?\\s*§+\\s*(?P<article>(?:[A-Za-z]\\.?\u005cs*)?\\d+[A-Za-z0-9()./-]*)",
+        "doc_family": "usc"
+      }
+    ],
+    "cfr": [
+      {
+        "scheme": "section",
+        "regex": "\\b\\d+\\s+C\\.?\\s*F\\.?\\s*R\\.?\\s*§+\\s*(?P<article>(?:[A-Za-z]\\.?\u005cs*)?\\d+[A-Za-z0-9()./-]*)",
+        "doc_family": "cfr"
+      }
+    ]
+  }
+}

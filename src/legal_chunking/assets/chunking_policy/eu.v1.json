@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "defaults": {
+    "code": "statute",
+    "primary_legislation": "statute",
+    "secondary_legislation": "statute",
+    "court_guidance": "guidance",
+    "guidance": "guidance",
+    "case_law": "case_law",
+    "commentary": "guidance",
+    "other": "default"
+  },
+  "fallback": {
+    "max_chars": 1200,
+    "overlap_chars": 120
+  },
+  "runtime": {
+    "pdf": {
+      "drop_line_equals": ["EN"],
+      "drop_line_regexes": [
+        "^[CL]\\s+\\d+/\\d+$",
+        "^\\(\\d+\\)\\s+OJ\\s+[CL]\\s+\\d+"
+      ],
+      "merge_wrapped_headings": true
+    },
+    "chunk": {
+      "document_root_splitter": "eu_recitals",
+      "article_splitter": "eu_article_subdivisions"
+    },
+    "heading": {
+      "block_signature_names": true
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "families": {
+    "article_like": ["article", "articles", "art.", "art"],
+    "chapter_like": ["chapter", "chapters"],
+    "section_like": ["section", "sections", "sec.", "sec", "subsection", "subsections"],
+    "point_like": ["clause", "clauses", "item", "items"],
+    "subpoint_like": ["subclause", "subclauses", "subsection", "subsections"],
+    "paragraph_like": ["paragraph", "paragraphs", "para.", "para", "subparagraph", "subparagraphs"],
+    "part_like": ["part", "parts", "title", "titles"],
+    "annex_like": ["annex", "annexes", "appendix", "appendices", "schedule", "schedules", "exhibit", "exhibits"]
+  }
+}

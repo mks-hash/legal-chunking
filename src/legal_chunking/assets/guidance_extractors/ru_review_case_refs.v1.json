@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "scope": {
+    "doc_kind": "court_guidance",
+    "extractor_scope": "review_point"
+  },
+  "strip_patterns": [
+    {
+      "id": "trailing_see_also_note",
+      "regex": "\\b\\d{1,2}\\s+См\\.\\s+также\\b.*$",
+      "flags": [
+        "IGNORECASE",
+        "DOTALL"
+      ]
+    }
+  ],
+  "candidate_patterns": [
+    {
+      "id": "prefixed_source_reference",
+      "regex": "((?:Определение|Постановление)\\s+[^.\\n]{0,160}?(?:от\\s+[0-9]{1,2}\\s+[А-Яа-я]+(?:\\s+[0-9]{4})?\\s*г?\\.?)?\\s*№\\s*[A-Za-zА-Яа-я0-9\\-\\/]+\\.?)",
+      "flags": [
+        "IGNORECASE"
+      ],
+      "select": "first"
+    },
+    {
+      "id": "tail_case_reference",
+      "regex": "(от\\s+[0-9]{1,2}\\s+[А-Яа-я]+(?:\\s+[0-9]{4})?\\s*г?\\.?\\s*№\\s*[A-Za-zА-Яа-я0-9\\-\\/]+)",
+      "flags": [
+        "IGNORECASE"
+      ],
+      "select": "last"
+    }
+  ],
+  "field_patterns": {
+    "case_number": {
+      "regex": "№\\s*([A-Za-zА-Яа-я0-9\\-\\/]+)"
+    },
+    "case_date": {
+      "regex": "от\\s+([0-9]{1,2}\\s+[А-Яа-я]+(?:\\s+[0-9]{4})?\\s*г?\\.?)",
+      "flags": [
+        "IGNORECASE"
+      ]
+    }
+  },
+  "court_aliases": [
+    {
+      "label": "Верховный Суд РФ",
+      "aliases": [
+        "Судебной коллегии Верховного Суда РФ",
+        "Судебная коллегия Верховного Суда РФ",
+        "Верховного Суда РФ",
+        "Верховный Суд РФ"
+      ]
+    }
+  ]
+}
