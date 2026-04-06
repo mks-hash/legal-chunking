@@ -2,22 +2,26 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Any
 
+from legal_chunking.errors import InvalidProfileError
 from legal_chunking.manifest import ReferenceDocFamily, load_asset_json, load_manifest
+from legal_chunking.runtime_policy import RuntimePolicy, parse_runtime_policy
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class ResolvedProfile:
     code: str
     language: str | None
     heading_patterns: dict[str, Any]
     numbering_markers: dict[str, Any]
     chunking_policy: dict[str, Any]
+    runtime: RuntimePolicy
     guidance_extractors: dict[str, Any]
-    doc_families: list[ReferenceDocFamily]
+    reference_patterns: dict[str, Any]
+    doc_families: tuple[ReferenceDocFamily, ...]
 
 
 @dataclass(slots=True, frozen=True)
@@ -37,7 +41,6 @@ class _DocFamilyAliasHit:
 ALLOWED_CHUNK_POLICIES = {"default", "statute", "guidance", "case_law"}
 
 
-@lru_cache(maxsize=32)
 def resolve_profile(profile: str) -> ResolvedProfile:
     """Resolve one enabled profile by code or alias."""
     normalized = (profile or "").strip().lower() or "generic"
@@ -45,39 +48,53 @@ def resolve_profile(profile: str) -> ResolvedProfile:
 
     direct = manifest.profiles.get(normalized)
     if direct and direct.enabled and direct.assets is not None:
+        chunking_policy = deepcopy(load_asset_json(direct.assets.chunking_policy))
         return ResolvedProfile(
             code=direct.code,
             language=direct.language,
-            heading_patterns=load_asset_json(direct.assets.heading_patterns),
-            numbering_markers=load_asset_json(direct.assets.numbering_markers),
-            chunking_policy=load_asset_json(direct.assets.chunking_policy),
+            heading_patterns=deepcopy(load_asset_json(direct.assets.heading_patterns)),
+            numbering_markers=deepcopy(load_asset_json(direct.assets.numbering_markers)),
+            chunking_policy=chunking_policy,
+            runtime=parse_runtime_policy(chunking_policy),
             guidance_extractors=(
-                load_asset_json(direct.assets.guidance_extractors)
+                deepcopy(load_asset_json(direct.assets.guidance_extractors))
                 if direct.assets.guidance_extractors
                 else {}
             ),
-            doc_families=list(direct.reference.doc_families) if direct.reference else [],
+            reference_patterns=(
+                deepcopy(load_asset_json(direct.assets.reference_patterns))
+                if direct.assets.reference_patterns
+                else {}
+            ),
+            doc_families=direct.reference.doc_families if direct.reference else (),
         )
 
     for candidate in manifest.profiles.values():
         if not candidate.enabled or candidate.assets is None:
             continue
         if normalized in candidate.aliases:
+            chunking_policy = deepcopy(load_asset_json(candidate.assets.chunking_policy))
             return ResolvedProfile(
                 code=candidate.code,
                 language=candidate.language,
-                heading_patterns=load_asset_json(candidate.assets.heading_patterns),
-                numbering_markers=load_asset_json(candidate.assets.numbering_markers),
-                chunking_policy=load_asset_json(candidate.assets.chunking_policy),
+                heading_patterns=deepcopy(load_asset_json(candidate.assets.heading_patterns)),
+                numbering_markers=deepcopy(load_asset_json(candidate.assets.numbering_markers)),
+                chunking_policy=chunking_policy,
+                runtime=parse_runtime_policy(chunking_policy),
                 guidance_extractors=(
-                    load_asset_json(candidate.assets.guidance_extractors)
+                    deepcopy(load_asset_json(candidate.assets.guidance_extractors))
                     if candidate.assets.guidance_extractors
                     else {}
                 ),
-                doc_families=list(candidate.reference.doc_families) if candidate.reference else [],
+                reference_patterns=(
+                    deepcopy(load_asset_json(candidate.assets.reference_patterns))
+                    if candidate.assets.reference_patterns
+                    else {}
+                ),
+                doc_families=candidate.reference.doc_families if candidate.reference else (),
             )
 
-    raise ValueError(f"Unknown or disabled profile: {profile}")
+    raise InvalidProfileError(f"Unknown or disabled profile: {profile}")
 
 
 def select_chunk_policy(

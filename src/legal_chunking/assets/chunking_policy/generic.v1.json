@@ -13,5 +13,10 @@
   "fallback": {
     "max_chars": 1200,
     "overlap_chars": 120
+  },
+  "runtime": {
+    "pdf": {},
+    "chunk": {},
+    "heading": {}
   }
 }

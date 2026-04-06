@@ -13,5 +13,13 @@
   "fallback": {
     "max_chars": 1200,
     "overlap_chars": 120
+  },
+  "runtime": {
+    "pdf": {},
+    "chunk": {
+      "document_root_splitter": "title_preamble",
+      "oversized_section_splitter": "rulebook_numeric"
+    },
+    "heading": {}
   }
 }
