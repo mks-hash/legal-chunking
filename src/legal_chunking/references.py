@@ -137,9 +137,7 @@ def _normalize_contextual_reference_suffixes(text: str, *, profile: str) -> str:
             profile=profile,
         ):
             return match.group(0)
-        suffix = (
-            match.group("paren") or match.group("underscore") or match.group("hyphen") or ""
-        )
+        suffix = match.group("paren") or match.group("underscore") or match.group("hyphen") or ""
         return f"{match.group('base')}.{suffix}"
 
     return _STRUCTURED_SUFFIX_RE.sub(replace_structured, normalized)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from legal_chunking.detect.guidance import split_guidance_blocks
 from legal_chunking.detect.guidance_metadata import extract_guidance_point_metadata
 from legal_chunking.detect.guidance_normalization import normalize_guidance_text
-from legal_chunking.models import LegalUnitType, Section
+from legal_chunking.models import LegalMetadata, LegalUnitType, Section
 from legal_chunking.tracing import TraceCollector, TraceStage
 
 from .section_common import find_block_offset, make_document_root, make_section_id
@@ -88,16 +88,18 @@ def assemble_guidance_sections(
                 section_type="review_point",
                 parent_section_id=root.section_id,
                 path=path,
-                point_number=metadata.point_number,
-                legal_unit_type=LegalUnitType.GUIDANCE_POINT,
-                legal_unit_number=metadata.point_number,
-                source_case_reference=metadata.source_case_reference,
-                source_case_number=metadata.source_case_number,
-                source_case_date=metadata.source_case_date,
-                source_case_court=metadata.source_case_court,
                 start_offset=start_offset,
                 end_offset=end_offset,
                 text=block.text,
+                metadata=LegalMetadata(
+                    point_number=metadata.point_number,
+                    legal_unit_type=LegalUnitType.GUIDANCE_POINT,
+                    legal_unit_number=metadata.point_number,
+                    source_case_reference=metadata.source_case_reference,
+                    source_case_number=metadata.source_case_number,
+                    source_case_date=metadata.source_case_date,
+                    source_case_court=metadata.source_case_court,
+                ),
             )
         )
         order += 1

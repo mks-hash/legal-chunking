@@ -80,10 +80,14 @@ def trim_leading_header_fragments(
             repeated_fingerprints=repeated_fingerprints,
         ):
             start = 1
-    while start < len(lines) and start < 4 and _is_leading_header_fragment(
-        lines[start],
-        repeated_noise=repeated_noise,
-        repeated_fingerprints=repeated_fingerprints,
+    while (
+        start < len(lines)
+        and start < 4
+        and _is_leading_header_fragment(
+            lines[start],
+            repeated_noise=repeated_noise,
+            repeated_fingerprints=repeated_fingerprints,
+        )
     ):
         start += 1
     return lines[start:]

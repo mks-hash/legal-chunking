@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from legal_chunking.models import Section
+from legal_chunking.models import LegalMetadata, Section
 from legal_chunking.tracing import TraceCollector, TraceStage
 
 from .headings import HeadingMatch
@@ -67,11 +67,13 @@ def assemble_sections(
             section_type=match.kind,
             parent_section_id=parent_section_id,
             path=path,
-            article_number=match.article_number,
-            paragraph_number=match.paragraph_number,
             start_offset=start_offset,
             end_offset=start_offset,
             text="",
+            metadata=LegalMetadata(
+                article_number=match.article_number,
+                paragraph_number=match.paragraph_number,
+            ),
         )
         order += 1
         stack.append(section)

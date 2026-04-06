@@ -298,7 +298,7 @@ def test_normalize_page_raw_text_drops_contextual_junk_prefix_before_header() ->
 
 
 def test_normalize_extracted_text_preserves_paragraph_boundaries() -> None:
-    raw = "  Article 1.\r\n\r\nClause\u00A01 \n\n\nClause 2  "
+    raw = "  Article 1.\r\n\r\nClause\u00a01 \n\n\nClause 2  "
 
     assert normalize_extracted_text(raw) == "Article 1.\n\nClause 1\n\nClause 2"
 
@@ -391,11 +391,11 @@ def test_chunk_text_builds_guidance_point_chunks_from_review_fixture() -> None:
     ]
     assert document.chunks[1].chunk_method == "guidance_point"
     assert document.chunks[1].section_type == "review_point"
-    assert document.chunks[1].point_number == "17"
-    assert document.chunks[1].legal_unit_type == LegalUnitType.GUIDANCE_POINT
-    assert document.chunks[1].legal_unit_number == "17"
-    assert document.chunks[1].source_case_number == "18-КГ23-155-К4"
-    assert document.chunks[1].source_case_court == "Верховный Суд РФ"
+    assert document.chunks[1].metadata.point_number == "17"
+    assert document.chunks[1].metadata.legal_unit_type == LegalUnitType.GUIDANCE_POINT
+    assert document.chunks[1].metadata.legal_unit_number == "17"
+    assert document.chunks[1].metadata.source_case_number == "18-КГ23-155-К4"
+    assert document.chunks[1].metadata.source_case_court == "Верховный Суд РФ"
 
 
 def test_normalize_guidance_text_recovers_inline_point_boundary_after_case_reference() -> None:
@@ -449,8 +449,10 @@ def test_chunk_text_keeps_oversized_guidance_point_as_single_chunk() -> None:
     ]
     point_chunks = [chunk for chunk in document.chunks if chunk.section_title == "Point 17"]
     assert len(point_chunks) == 1
-    assert all(chunk.legal_unit_type == LegalUnitType.GUIDANCE_POINT for chunk in point_chunks)
-    assert all(chunk.point_number == "17" for chunk in point_chunks)
+    assert all(
+        chunk.metadata.legal_unit_type == LegalUnitType.GUIDANCE_POINT for chunk in point_chunks
+    )
+    assert all(chunk.metadata.point_number == "17" for chunk in point_chunks)
 
 
 def test_chunk_text_keeps_realistic_guidance_fixture_points_as_primary_units() -> None:
@@ -474,7 +476,7 @@ def test_chunk_text_keeps_realistic_guidance_fixture_points_as_primary_units() -
     point_chunks = [chunk for chunk in document.chunks if chunk.section_title == "Point 17"]
     assert len(point_chunks) == 1
     assert point_chunks[0].chunk_method == "guidance_point"
-    assert point_chunks[0].source_case_number == "18-КГ23-155-К4"
+    assert point_chunks[0].metadata.source_case_number == "18-КГ23-155-К4"
 
 
 def test_chunk_text_splits_oversized_uae_rulebook_section_by_numbered_rules() -> None:
@@ -502,12 +504,12 @@ def test_chunk_text_splits_oversized_uae_rulebook_section_by_numbered_rules() ->
         "Section A. General principles",
         "Section A. General principles",
     ]
-    assert [chunk.legal_unit_type for chunk in document.chunks] == [
+    assert [chunk.metadata.legal_unit_type for chunk in document.chunks] == [
         None,
         LegalUnitType.RULE_BLOCK,
         LegalUnitType.RULE_BLOCK,
     ]
-    assert [chunk.legal_unit_number for chunk in document.chunks] == [None, "1", "2"]
+    assert [chunk.metadata.legal_unit_number for chunk in document.chunks] == [None, "1", "2"]
     assert document.chunks[1].text.startswith("Section A. General principles 1.")
     assert document.chunks[2].text.startswith("Section A. General principles 2.")
 
@@ -529,11 +531,11 @@ def test_chunk_text_splits_definition_schedule_into_definition_entries() -> None
         "definition_entry",
         "definition_entry",
     ]
-    assert [chunk.legal_unit_type for chunk in document.chunks] == [
+    assert [chunk.metadata.legal_unit_type for chunk in document.chunks] == [
         LegalUnitType.DEFINITION_ENTRY,
         LegalUnitType.DEFINITION_ENTRY,
     ]
-    assert [chunk.definition_term for chunk in document.chunks] == [
+    assert [chunk.metadata.definition_term for chunk in document.chunks] == [
         "Client Money",
         "Sponsored VASP",
     ]
@@ -544,14 +546,12 @@ def test_chunk_text_splits_definition_schedule_into_definition_entries() -> None
 def test_parse_definition_entries_keeps_alias_terms_and_quoted_definition_targets() -> None:
     text = (
         'Term Definition "Ultimate Beneficial Owner" or "UBO" '
-        'has the meaning ascribed to it in the Company Rulebook. '
+        "has the meaning ascribed to it in the Company Rulebook. "
         '"VA Wallet" has the meaning ascribed to the term '
         '"Virtual Asset Wallet" in the Dubai VA Law. '
         '"Virtual Asset" or "VA" has the meaning ascribed to it in the Dubai VA Law.'
     )
-    entries = parse_definition_entries(
-        text
-    )
+    entries = parse_definition_entries(text)
 
     assert [entry.term for entry in entries] == [
         "Ultimate Beneficial Owner / UBO",
@@ -767,8 +767,7 @@ def test_cli_chunk_writes_json_to_output_file(tmp_path: Path, capsys) -> None:
 def test_cli_chunk_reads_text_file_path(tmp_path: Path, capsys) -> None:
     text_path = tmp_path / "rulebook.txt"
     text_path.write_text(
-        "Schedule 1 - Definitions\n"
-        '"Client Money" means money held on behalf of a client.\n',
+        'Schedule 1 - Definitions\n"Client Money" means money held on behalf of a client.\n',
         encoding="utf-8",
     )
 
@@ -788,4 +787,4 @@ def test_cli_chunk_reads_text_file_path(tmp_path: Path, capsys) -> None:
 
     assert exit_code == 0
     assert payload["source_name"] == "rulebook.txt"
-    assert payload["chunks"][0]["definition_term"] == "Client Money"
+    assert payload["chunks"][0]["metadata"]["definition_term"] == "Client Money"
