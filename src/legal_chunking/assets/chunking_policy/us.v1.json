@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "defaults": {
+    "code": "statute",
+    "primary_legislation": "statute",
+    "secondary_legislation": "statute",
+    "procedure_rules": "statute",
+    "guidance": "guidance",
+    "case_law": "case_law",
+    "commentary": "guidance",
+    "other": "default"
+  },
+  "fallback": {
+    "max_chars": 1200,
+    "overlap_chars": 120
+  },
+  "runtime": {
+    "pdf": {
+      "trim_rules_body": true,
+      "trim_running_rule_headers": true,
+      "merge_wrapped_headings": true
+    },
+    "chunk": {
+      "article_splitter": "us_rule_subdivisions"
+    },
+    "heading": {
+      "allow_long_rule_titles": true
+    }
+  }
+}

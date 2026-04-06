@@ -1,0 +1,58 @@
+{
+  "source_name": "federal-rules-of-civil-procedure-dec-1-2024_0.pdf",
+  "profile": "us",
+  "language": "en",
+  "chunk_policy": "statute",
+  "chunks": [
+    {
+      "chunk_id": "chunk-394c5793d613",
+      "text": "Rule 4. Summons (a) CONTENTS; AMENDMENTS. (1) Contents. A summons must: (A) name the court and the parties; (B) be directed to the defendant; (C) state the name and address of the plaintiff’s attorney or—if unrepresented—of the plaintiff; (D) state the time within which the defendant must appear and defend; (E) notify the defendant that a failure to appear and defend will result in a default judgment against the defendant for the relief demanded in the complaint; (F) be signed by the clerk; and (G) bear the court’s seal. (2) Amendments. The court may permit a summons to be amended. (b) ISSUANCE. On or after filing the complaint, the plaintiff may present a summons to the clerk for signature and seal. If the summons is properly completed, the clerk must sign, seal, and issue it to the plaintiff for service on the defendant. A summons—or a copy of a summons that is addressed to multiple defendants—must be issued for each defendant to be served. (c) SERVICE.",
+      "order": 7,
+      "chunk_method": "statute_unit",
+      "page": null,
+      "section_id": "sec-83e6e4da8bd2",
+      "section_title": "Rule 4. Summons",
+      "section_type": "article",
+      "metadata": {
+        "article_number": "4",
+        "paragraph_number": null,
+        "point_number": null,
+        "legal_unit_type": null,
+        "legal_unit_number": null,
+        "source_case_reference": null,
+        "source_case_number": null,
+        "source_case_date": null,
+        "source_case_court": null,
+        "definition_term": null
+      },
+      "semantic_hash": "d3e396b564333979c3bf90b5348baff82798c9ffa3deadc5ddcab9070215e248",
+      "prev_chunk_id": "chunk-d0ee30fb02b5",
+      "next_chunk_id": "chunk-632985ae6cf2"
+    },
+    {
+      "chunk_id": "chunk-632985ae6cf2",
+      "text": "(1) In General. A summons must be served with a copy of the complaint. The plaintiff is responsible for having the summons and complaint served within the time allowed by Rule 4(m) and must furnish the necessary copies to the person who makes service. (2) By Whom. Any person who is at least 18 years old and not a party may serve a summons and complaint. (3) By a Marshal or Someone Specially Appointed. At the plaintiff’s request, the court may order that service be made by a United States marshal or deputy marshal or by a person specially appointed by the court. The court must so order if the plaintiff is authorized to proceed in forma pauperis under 28 U.S.C. § 1915 or as a seaman under 28 U.S.C. § 1916. (d) WAIVING SERVICE. (1) Requesting a Waiver. An individual, corporation, or association that is subject to service under Rule 4(e), (f), or (h) has a duty to avoid unnecessary expenses of serving the summons. The plaintiff may notify such a defendant that an action has been commenced and request that the defendant waive service of a summons. The notice and request must: (A) be in writing and be addressed:",
+      "order": 8,
+      "chunk_method": "statute_unit",
+      "page": null,
+      "section_id": "sec-83e6e4da8bd2",
+      "section_title": "Rule 4. Summons",
+      "section_type": "article",
+      "metadata": {
+        "article_number": "4",
+        "paragraph_number": null,
+        "point_number": null,
+        "legal_unit_type": null,
+        "legal_unit_number": null,
+        "source_case_reference": null,
+        "source_case_number": null,
+        "source_case_date": null,
+        "source_case_court": null,
+        "definition_term": null
+      },
+      "semantic_hash": "0f76e98a1dca58bee6d305007d1718bd6d70be2bfb841eda2bccfd3c8f25ce01",
+      "prev_chunk_id": "chunk-394c5793d613",
+      "next_chunk_id": "chunk-5e0a07e49629"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "patterns": [
+    {"section_type": "part", "regex": "^(part|title)\\s+(?P<num>(?:[ivxlcdm\\d]+|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth))\\.?\\s*(?:[–-]\\s*)?(?P<title>.*)$"},
+    {"section_type": "chapter", "regex": "^(chapter|chap\\.?)\\s+(?P<num>[ivxlcdm\\d]+)\\.?\\s*(?:[–-]\\s*)?(?P<title>.*)$"},
+    {"section_type": "section", "regex": "^(section|sec\\.?)\\s+(?P<num>[ivxlcdm\\d]+)\\.?\\s*(?:[–-]\\s*)?(?P<title>.*)$"},
+    {"section_type": "article", "regex": "^(article|art\\.?)\\s+(?P<num>\\d+(?:\\.\\d+)*(?:\\s*[–-]\\s*\\d+(?:\\.\\d+)*)?(?:\\s*,\\s*\\d+(?:\\.\\d+)*)*)\\.?\\s*(?P<title>.*)$"},
+    {"section_type": "paragraph", "regex": "^(paragraph|para\\.?|§)\\s+(?P<num>\\d+(?:\\.\\d+)*(?:\\s*[–-]\\s*\\d+(?:\\.\\d+)*)?(?:\\s*,\\s*\\d+(?:\\.\\d+)*)*)\\.?\\s*(?P<title>.*)$"},
+    {"section_type": "schedule", "regex": "^(schedule|annex|appendix|exhibit)\\s*(?:№|No\\.?|N)?\\s*(?P<num>[a-zivxlcdm\\d]+)\\.?\\s*(?:[–-]\\s*)?(?P<title>.*)$"},
+    {"section_type": "roman_heading", "regex": "^(?P<num>[IVXLCDM]+)(?:[.)]|\\b)\\s+(?P<title>[^\\n]+)$"},
+    {"section_type": "alpha_heading", "regex": "^(?P<num>[A-Z])\\.(?:\\s+|\\s*[–-]\\s*)(?P<title>[^\\n]+)$"},
+    {"section_type": "numeric_heading", "regex": "^(?P<num>\\d+(?:\\.\\d+){0,5})[.)]?\\s+(?P<title>[A-Za-z].+)$"}
+  ]
+}
