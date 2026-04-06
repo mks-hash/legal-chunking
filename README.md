@@ -66,6 +66,27 @@ Chunking APIs return a `Document` that contains:
 - `chunks`
 - optional `trace`
 
+Example of evaluating `chunk_text()` structure:
+
+```json
+{
+  "profile": "ru",
+  "language": "ru",
+  "chunk_policy": "guidance",
+  "chunks": [
+    {
+      "method": "guidance_point",
+      "text": "17. Судебная коллегия по гражданским делам...",
+      "metadata": {
+        "legal_unit_type": "guidance_point",
+        "point_number": "17",
+        "source_case_reference": "от 12 декабря 2023 г. № 18-КГ23-155-К4"
+      }
+    }
+  ]
+}
+```
+
 ## CLI
 
 The package includes a small inspectable CLI:
@@ -74,7 +95,7 @@ The package includes a small inspectable CLI:
 legal-chunking chunk --text "Article 1. General provisions" --profile generic
 legal-chunking structure --path ./rulebook.txt --profile ae --doc-kind primary_legislation
 legal-chunking explain --path ./rulebook.pdf --profile ae --doc-kind primary_legislation
-legal-chunking review --path ./.oss/testings/CELEX_32016R0679_EN_TXT.pdf --profile eu --limit 12
+legal-chunking review --path ./documents/gdpr.pdf --profile eu --limit 12
 legal-chunking review --path ./rulebook.pdf --profile ae --output ./snapshots/rulebook-review.txt
 ```
 
@@ -88,9 +109,9 @@ Command contracts:
 For real-document review, `review` is the fastest way to inspect chunk quality by eye:
 
 ```bash
-legal-chunking review --path ./.oss/testings/federal-rules-of-civil-procedure-dec-1-2024_0.pdf --profile us --limit 15 --max-chars 220
-legal-chunking review --path ./.oss/testings/VARA_EN_123_VER20250519.pdf --profile ae --doc-kind primary_legislation --limit 20
-legal-chunking review --path ./.oss/testings/Постановление-Пленума-Верховного-Суда-Российской-Федерации-от-23-апреля-2019-N-10.pdf --profile ru --doc-kind court_guidance --limit 25
+legal-chunking review --path ./documents/us_federal_rules.pdf --profile us --limit 15 --max-chars 220
+legal-chunking review --path ./documents/vara_rules.pdf --profile ae --doc-kind primary_legislation --limit 20
+legal-chunking review --path ./documents/ru_plenum.pdf --profile ru --doc-kind court_guidance --limit 25
 ```
 
 That output lets you inspect:
@@ -107,21 +128,21 @@ Use that for reproducible manual review and diffable artifacts:
 mkdir -p ./snapshots
 
 legal-chunking review \
-  --path ./.oss/testings/CELEX_32016R0679_EN_TXT.pdf \
+  --path ./documents/gdpr.pdf \
   --profile eu \
   --limit 20 \
   --max-chars 220 \
   --output ./snapshots/gdpr-eu-review.txt
 
 legal-chunking review \
-  --path ./.oss/testings/federal-rules-of-civil-procedure-dec-1-2024_0.pdf \
+  --path ./documents/us_federal_rules.pdf \
   --profile us \
   --limit 20 \
   --max-chars 220 \
   --output ./snapshots/frcp-us-review.txt
 
 legal-chunking review \
-  --path ./.oss/testings/VARA_EN_123_VER20250519.pdf \
+  --path ./documents/vara_rules.pdf \
   --profile ae \
   --doc-kind primary_legislation \
   --limit 20 \
@@ -129,7 +150,7 @@ legal-chunking review \
   --output ./snapshots/vara-ae-review.txt
 
 legal-chunking review \
-  --path ./.oss/testings/Обзор-судебной-практики-по-делам-о-защите-прав-потребителей-от-23-октября-2024.pdf \
+  --path ./documents/ru_consumer_review.pdf \
   --profile ru \
   --doc-kind court_guidance \
   --limit 25 \
@@ -137,7 +158,7 @@ legal-chunking review \
   --output ./snapshots/consumer-review-ru-review.txt
 
 legal-chunking review \
-  --path ./.oss/testings/Постановление-Пленума-Верховного-Суда-Российской-Федерации-от-23-апреля-2019-N-10.pdf \
+  --path ./documents/ru_plenum.pdf \
   --profile ru \
   --doc-kind court_guidance \
   --limit 25 \
