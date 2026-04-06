@@ -115,3 +115,25 @@ def test_assemble_sections_builds_guidance_point_sections_from_ru_review_fixture
     assert sections[1].metadata.source_case_number == "18-КГ23-155-К4"
     assert sections[1].metadata.source_case_date == "12 декабря 2023 г."
     assert sections[1].metadata.source_case_court == "Верховный Суд РФ"
+
+
+def test_assemble_sections_from_us_rule_fixture() -> None:
+    text = (FIXTURES_DIR / "us_rule_example.txt").read_text(encoding="utf-8")
+    sections = assemble_sections(text, profile="us")
+
+    # The fixture starts with "Rule 4. Summons"
+    assert any(s.kind == "article" and "Rule 4" in (s.title or "") for s in sections)
+
+
+def test_assemble_sections_from_eu_statute_fixture() -> None:
+    text = (FIXTURES_DIR / "eu_statute_example.txt").read_text(encoding="utf-8")
+    sections = assemble_sections(text, profile="eu")
+
+    assert any(s.kind == "article" and "Article 12" in (s.title or "") for s in sections)
+
+
+def test_assemble_sections_from_ae_rulebook_fixture() -> None:
+    text = (FIXTURES_DIR / "ae_rule_example.txt").read_text(encoding="utf-8")
+    sections = assemble_sections(text, profile="ae", doc_kind="primary_legislation")
+
+    assert any(s.kind == "section" and "Section A" in (s.title or "") for s in sections)
