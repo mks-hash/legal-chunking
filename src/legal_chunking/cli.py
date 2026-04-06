@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from dataclasses import asdict
 from pathlib import Path
 
@@ -15,13 +16,31 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="legal-chunking")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for command in ("chunk", "structure", "explain"):
+    for command in ("chunk", "structure", "explain", "review"):
         command_parser = subparsers.add_parser(command)
         input_group = command_parser.add_mutually_exclusive_group(required=True)
         input_group.add_argument("--text", help="Raw text input.")
         input_group.add_argument("--path", help="Path to a text or PDF file.")
         command_parser.add_argument("--profile", default="generic", help="Chunking profile.")
         command_parser.add_argument("--doc-kind", default=None, help="Optional document kind.")
+        command_parser.add_argument(
+            "--output",
+            default=None,
+            help="Optional output file path for JSON or review text.",
+        )
+        if command == "review":
+            command_parser.add_argument(
+                "--limit",
+                type=int,
+                default=20,
+                help="Maximum number of sections and chunks to render.",
+            )
+            command_parser.add_argument(
+                "--max-chars",
+                type=int,
+                default=240,
+                help="Maximum preview length per section or chunk.",
+            )
     return parser
 
 
@@ -80,6 +99,64 @@ def _serialize_payload(command: str, document: Document) -> dict[str, object]:
     raise ValueError(f"Unsupported command: {command}")
 
 
+def _preview(text: str, *, max_chars: int) -> str:
+    collapsed = re.sub(r"\s+", " ", text).strip()
+    if len(collapsed) <= max_chars:
+        return collapsed
+    return f"{collapsed[: max_chars - 1].rstrip()}…"
+
+
+def _render_review(document: Document, *, limit: int, max_chars: int) -> str:
+    lines = [
+        f"Source: {document.source_name}",
+        f"Profile: {document.profile}",
+        f"Language: {document.language or 'unknown'}",
+        f"Chunk policy: {document.chunk_policy}",
+        f"Sections: {len(document.sections)}",
+        f"Chunks: {len(document.chunks)}",
+        "",
+        "Sections",
+    ]
+    for section in document.sections[:limit]:
+        lines.extend(
+            [
+                (
+                    f"[{section.order}] {section.title} | kind={section.kind}"
+                    f" | type={section.section_type or '-'}"
+                ),
+                f"  preview: {_preview(section.text, max_chars=max_chars)}",
+            ]
+        )
+    if len(document.sections) > limit:
+        lines.append(f"  ... {len(document.sections) - limit} more sections")
+
+    lines.extend(["", "Chunks"])
+    for chunk in document.chunks[:limit]:
+        lines.extend(
+            [
+                (
+                    f"[{chunk.order}] {chunk.section_title or '-'}"
+                    f" | method={chunk.chunk_method}"
+                    f" | chunk_id={chunk.chunk_id}"
+                ),
+                f"  preview: {_preview(chunk.text, max_chars=max_chars)}",
+            ]
+        )
+    if len(document.chunks) > limit:
+        lines.append(f"  ... {len(document.chunks) - limit} more chunks")
+
+    return "\n".join(lines)
+
+
+def _emit_output(content: str, *, output: str | None) -> None:
+    if output is None:
+        print(content)
+        return
+    target = Path(output)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content + "\n", encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -90,12 +167,19 @@ def main(argv: list[str] | None = None) -> int:
         doc_kind=args.doc_kind,
         trace=args.command == "explain",
     )
-    print(
-        json.dumps(
-            _serialize_payload(args.command, document),
-            ensure_ascii=False,
-            indent=2,
+    if args.command == "review":
+        _emit_output(
+            _render_review(
+                document,
+                limit=args.limit,
+                max_chars=args.max_chars,
+            ),
+            output=args.output,
         )
+        return 0
+    _emit_output(
+        json.dumps(_serialize_payload(args.command, document), ensure_ascii=False, indent=2),
+        output=args.output,
     )
     return 0
 

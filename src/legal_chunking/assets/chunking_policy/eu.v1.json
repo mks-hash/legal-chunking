@@ -13,5 +13,21 @@
   "fallback": {
     "max_chars": 1200,
     "overlap_chars": 120
+  },
+  "runtime": {
+    "pdf": {
+      "drop_line_equals": ["EN"],
+      "drop_line_regexes": [
+        "^[CL]\\s+\\d+/\\d+$",
+        "^\\(\\d+\\)\\s+OJ\\s+[CL]\\s+\\d+"
+      ],
+      "merge_wrapped_headings": true
+    },
+    "chunk": {
+      "article_splitter": "eu_article_subdivisions"
+    },
+    "heading": {
+      "block_signature_names": true
+    }
   }
 }

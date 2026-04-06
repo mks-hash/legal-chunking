@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "scoped_patterns": [
+    {
+      "scheme": "ru_article",
+      "fields": {
+        "article": {
+          "family": "article_like",
+          "number_pattern": "\\d+(?:\\.\\d+)*",
+          "required": true
+        },
+        "paragraph": {
+          "family": "point_like",
+          "number_pattern": "\\d+(?:\\.\\d+)*"
+        },
+        "part": {
+          "family": "part_like",
+          "number_pattern": "\\d+"
+        }
+      },
+      "order": ["part", "paragraph", "article"]
+    },
+    {
+      "scheme": "ru_article",
+      "fields": {
+        "article": {
+          "family": "article_like",
+          "number_pattern": "\\d+(?:\\.\\d+)*",
+          "required": true
+        },
+        "paragraph": {
+          "family": "point_like",
+          "number_pattern": "\\d+(?:\\.\\d+)*"
+        },
+        "part": {
+          "family": "part_like",
+          "number_pattern": "\\d+"
+        }
+      },
+      "order": ["paragraph", "part", "article"]
+    }
+  ],
+  "patterns": [],
+  "doc_family_patterns": {}
+}

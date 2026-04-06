@@ -9,7 +9,6 @@ from functools import lru_cache
 from legal_chunking.profiles import resolve_profile
 
 
-@lru_cache(maxsize=32)
 def _load_numbering_markers(profile: str) -> dict[str, object]:
     payload = resolve_profile(profile).numbering_markers
     if not isinstance(payload, dict):

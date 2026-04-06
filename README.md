@@ -1,14 +1,70 @@
 # legal-chunking
 
-`legal-chunking` is an open-source Python library for structure-aware chunking of legal documents.
+`legal-chunking` is an open-source Python library for deterministic, structure-aware parsing, chunking, and reference extraction for legal documents.
 
-The project is intentionally focused on one narrow problem:
+The project is intentionally narrow:
 
-- ingest legal text from plain text and PDF sources
-- normalize document text deterministically
-- detect legal structure such as headings, articles, sections, items, and paragraphs
-- split documents by logical boundaries instead of fixed character windows
-- return stable chunks with structured metadata for downstream processing
+- accept legal text from plain text and PDF sources
+- normalize text deterministically
+- recover legal structure such as headings, parts, sections, articles, clauses, and points
+- build chunks from logical legal boundaries instead of fixed-size windows
+- return stable metadata and reference parsing results for downstream systems
+
+It is not a retrieval framework, ranking engine, or product orchestration layer.
+
+## Why Not Generic Text Splitters?
+
+Most text splitters operate on fixed-size windows or shallow heuristics.
+
+`legal-chunking` is designed to preserve legal structure instead of flattening it:
+
+- reconstructs legal structure before chunking instead of treating text as flat token sequences
+- uses semantic legal boundaries such as articles, sections, rules, and guidance points as the primary split strategy
+- preserves deterministic and reproducible outputs for identical inputs
+- exposes explainable trace data for the chunking pipeline
+
+The goal is not to be smaller than generic splitters.
+The goal is to be narrower in scope, but stronger inside that scope.
+
+## Public API
+
+The public package surface is intentionally small:
+
+```python
+from legal_chunking import chunk_pdf, chunk_text, extract_references
+
+doc = chunk_text(
+    "Article 1. General provisions\nThe borrower shall...",
+    profile="generic",
+)
+
+pdf_doc = chunk_pdf(
+    "./rulebook.pdf",
+    profile="ae",
+    doc_kind="primary_legislation",
+)
+
+refs = extract_references(
+    "пункт 3 статьи 450 ГК РФ",
+    profile="ru",
+)
+```
+
+Core public types:
+
+- `ParsedReference`
+- `Document`
+- `Section`
+- `Chunk`
+
+Chunking APIs return a `Document` that contains:
+
+- normalized `text`
+- resolved `profile` and `language`
+- selected `chunk_policy`
+- `sections`
+- `chunks`
+- optional `trace`
 
 ## CLI
 
@@ -18,6 +74,8 @@ The package includes a small inspectable CLI:
 legal-chunking chunk --text "Article 1. General provisions" --profile generic
 legal-chunking structure --path ./rulebook.txt --profile ae --doc-kind primary_legislation
 legal-chunking explain --path ./rulebook.pdf --profile ae --doc-kind primary_legislation
+legal-chunking review --path ./.oss/testings/CELEX_32016R0679_EN_TXT.pdf --profile eu --limit 12
+legal-chunking review --path ./rulebook.pdf --profile ae --output ./snapshots/rulebook-review.txt
 ```
 
 Command contracts:
@@ -25,39 +83,123 @@ Command contracts:
 - `chunk` emits chunk metadata only
 - `structure` emits detected sections only
 - `explain` emits staged trace events only
+- `review` emits a human-readable section and chunk preview for manual inspection
+
+For real-document review, `review` is the fastest way to inspect chunk quality by eye:
+
+```bash
+legal-chunking review --path ./.oss/testings/federal-rules-of-civil-procedure-dec-1-2024_0.pdf --profile us --limit 15 --max-chars 220
+legal-chunking review --path ./.oss/testings/VARA_EN_123_VER20250519.pdf --profile ae --doc-kind primary_legislation --limit 20
+legal-chunking review --path ./.oss/testings/Постановление-Пленума-Верховного-Суда-Российской-Федерации-от-23-апреля-2019-N-10.pdf --profile ru --doc-kind court_guidance --limit 25
+```
+
+That output lets you inspect:
+
+- detected section titles and order
+- chunking method per chunk
+- short text previews for each chunk
+- total section and chunk counts per document
+
+All CLI commands also support `--output` for snapshot export.
+Use that for reproducible manual review and diffable artifacts:
+
+```bash
+mkdir -p ./snapshots
+
+legal-chunking review \
+  --path ./.oss/testings/CELEX_32016R0679_EN_TXT.pdf \
+  --profile eu \
+  --limit 20 \
+  --max-chars 220 \
+  --output ./snapshots/gdpr-eu-review.txt
+
+legal-chunking review \
+  --path ./.oss/testings/federal-rules-of-civil-procedure-dec-1-2024_0.pdf \
+  --profile us \
+  --limit 20 \
+  --max-chars 220 \
+  --output ./snapshots/frcp-us-review.txt
+
+legal-chunking review \
+  --path ./.oss/testings/VARA_EN_123_VER20250519.pdf \
+  --profile ae \
+  --doc-kind primary_legislation \
+  --limit 20 \
+  --max-chars 220 \
+  --output ./snapshots/vara-ae-review.txt
+
+legal-chunking review \
+  --path ./.oss/testings/Обзор-судебной-практики-по-делам-о-защите-прав-потребителей-от-23-октября-2024.pdf \
+  --profile ru \
+  --doc-kind court_guidance \
+  --limit 25 \
+  --max-chars 220 \
+  --output ./snapshots/consumer-review-ru-review.txt
+
+legal-chunking review \
+  --path ./.oss/testings/Постановление-Пленума-Верховного-Суда-Российской-Федерации-от-23-апреля-2019-N-10.pdf \
+  --profile ru \
+  --doc-kind court_guidance \
+  --limit 25 \
+  --max-chars 220 \
+  --output ./snapshots/plenum-ru-review.txt
+```
 
 ## Status
 
-This repository is in early bootstrap stage.
+This repository is in pre-alpha.
+The current implementation already includes:
 
-Planned design principles:
+- packaged manifest-driven profiles
+- deterministic normalization and semantic hashing
+- section assembly with typed legal units
+- policy-aware chunking
+- PDF extraction support
+- structured legal reference extraction
+- CLI commands for chunk, structure, and explain
+
+Design principles:
 
 - structure-aware chunking over naive sliding windows
 - asset-driven profiles over hardcoded jurisdiction logic
 - deterministic outputs for identical inputs
-- pure library first, CLI second
-- no vector database, no LLM orchestration, no application-specific runtime concerns
+- inspectable runtime behavior
+- dependency-light core with explicit optional extras
 
 ## Scope
 
-Initial targets:
+In scope for v1:
 
-- Python package
-- CLI entrypoint
 - text and PDF inputs
-- profile-based chunking behavior
-- structured JSON export
-- golden tests for legal chunk boundaries
+- profile resolution by code or alias
+- policy-aware chunking
+- structured legal reference extraction
+- traceable boundary decisions
+- structured JSON output through the CLI
 
 Out of scope for v1:
 
 - embeddings
 - vector stores
+- retrieval orchestration
 - reranking
-- LLM calls
+- LLM reasoning
 - web services
 - UI
 - workflow orchestration
+
+## Profiles
+
+Profiles currently enabled through the packaged manifest:
+
+- `generic`
+- `ru`
+- `us`
+- `eu`
+- `ae`
+
+`generic` and `ru` are the primary working profiles.
+`us`, `eu`, and `ae` are narrower but real runtime profiles, not placeholder names.
 
 ## Repository Layout
 
@@ -73,7 +215,9 @@ examples/
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
-pytest
+pytest -q
+ruff check .
+ruff format --check .
 ```
 
 PDF extraction uses an optional dependency:

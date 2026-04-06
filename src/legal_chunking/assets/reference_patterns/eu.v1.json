@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "patterns": [
+    {
+      "scheme": "recital",
+      "regex": "\\bRecital\\s+(?P<article>(?:[A-Za-z]\\.?\u005cs*)?\\d+[A-Za-z0-9()./-]*)"
+    },
+    {
+      "scheme": "recital",
+      "regex": "\\bRecital\\s*\\((?P<article>(?:[A-Za-z]\\.?\u005cs*)?\\d+[A-Za-z0-9()./-]*)\\)"
+    }
+  ],
+  "doc_family_patterns": {}
+}
