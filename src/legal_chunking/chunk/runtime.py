@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 
 from legal_chunking.hashing import _compute_chunk_identity_hash, compute_semantic_hash
-from legal_chunking.models import Chunk, LegalUnitType, Section
+from legal_chunking.models import Chunk, LegalMetadata, LegalUnitType, Section
 from legal_chunking.normalize import normalize_chunk_text
 from legal_chunking.profiles import ChunkFallbackConfig, ResolvedProfile
 from legal_chunking.tracing import TraceCollector
@@ -88,16 +88,18 @@ def append_chunk(
             section_id=section.section_id,
             section_title=section.title,
             section_type=section.section_type or section.kind,
-            article_number=section.article_number,
-            paragraph_number=section.paragraph_number,
-            point_number=section.point_number,
-            legal_unit_type=legal_unit_type or section.legal_unit_type,
-            legal_unit_number=legal_unit_number or section.legal_unit_number,
-            source_case_reference=section.source_case_reference,
-            source_case_number=section.source_case_number,
-            source_case_date=section.source_case_date,
-            source_case_court=section.source_case_court,
-            definition_term=definition_term or section.definition_term,
+            metadata=LegalMetadata(
+                article_number=section.metadata.article_number,
+                paragraph_number=section.metadata.paragraph_number,
+                point_number=section.metadata.point_number,
+                legal_unit_type=legal_unit_type or section.metadata.legal_unit_type,
+                legal_unit_number=legal_unit_number or section.metadata.legal_unit_number,
+                source_case_reference=section.metadata.source_case_reference,
+                source_case_number=section.metadata.source_case_number,
+                source_case_date=section.metadata.source_case_date,
+                source_case_court=section.metadata.source_case_court,
+                definition_term=definition_term or section.metadata.definition_term,
+            ),
             semantic_hash=compute_semantic_hash(normalized_text),
         )
     )
@@ -130,7 +132,7 @@ def split_section(
     paragraphs = split_paragraphs(normalized)
     if chunk_policy == "guidance":
         is_guidance_point = (
-            section.legal_unit_type == LegalUnitType.GUIDANCE_POINT
+            section.metadata.legal_unit_type == LegalUnitType.GUIDANCE_POINT
             or (section.section_type or "") == "review_point"
         )
         if is_guidance_point:

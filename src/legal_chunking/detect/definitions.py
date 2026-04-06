@@ -9,13 +9,13 @@ _TERM_HEADER_RE = re.compile(r"^\s*term\s+definition\s*$", re.IGNORECASE | re.MU
 _TERM_HEADER_INLINE_RE = re.compile(r"\bterm\s+definition\b", re.IGNORECASE)
 _ENTRY_START_RE = re.compile(
     r'(?P<header>"[^"\n]{1,200}"(?:\s+or\s+"[^"\n]{1,200}")*)\s+'
-    r'(?P<intro>'
-    r'means\b|'
-    r'has\s+the\s+meaning\s+ascribed\s+to\s+the\s+term\b|'
-    r'has\s+the\s+meaning\s+ascribed\s+to\s+it\s+in\b|'
-    r'has\s+the\s+meaning\s+ascribed\s+to\s+it\b|'
-    r'has\s+the\s+meaning\s+ascribed\s+to\b'
-    r')',
+    r"(?P<intro>"
+    r"means\b|"
+    r"has\s+the\s+meaning\s+ascribed\s+to\s+the\s+term\b|"
+    r"has\s+the\s+meaning\s+ascribed\s+to\s+it\s+in\b|"
+    r"has\s+the\s+meaning\s+ascribed\s+to\s+it\b|"
+    r"has\s+the\s+meaning\s+ascribed\s+to\b"
+    r")",
     re.IGNORECASE,
 )
 _QUOTED_ALIAS_RE = re.compile(r'"([^"\n]{1,200})"')

@@ -17,10 +17,10 @@ ArticleSplitter = Callable[[Section, ChunkFallbackConfig, TraceCollector | None]
 OversizedSectionSplitter = Callable[[Section, TraceCollector | None], list[ChunkSplit]]
 
 _US_RULE_SUBDIVISION_RE = re.compile(
-    r"(?:(?<=^)|(?<=[.!?;:]))\s*(?P<label>\((?:[a-z]|\d+|[A-Z])\))\s+"
+    r"(?:(?<=^)|(?<=[.!?;:\n]))\s*(?P<label>\((?:[a-z]|\d+|[A-Z])\))\s+"
 )
 _EU_ARTICLE_SUBDIVISION_RE = re.compile(
-    r"(?:(?<=^)|(?<=[.!?;:]))\s*(?P<label>(?:\d+\.|\((?:[a-z]|\d+)\)))\s+"
+    r"(?:(?<=^)|(?<=[.!?;:\n]))\s*(?P<label>(?:\d+\.|\((?:[a-z]|\d+)\)))\s+"
 )
 
 
@@ -233,8 +233,23 @@ def split_definition_schedule(
     ]
 
 
+def split_eu_recitals(text: str, fallback: ChunkFallbackConfig) -> list[ChunkSplit]:
+    text = (text or "").strip()
+    if len(text) <= fallback.max_chars:
+        return []
+    subdivisions = _split_eu_article_subdivisions(text)
+    if len(subdivisions) < 2:
+        return []
+
+    grouped = _group_text_units(subdivisions, max_chars=fallback.max_chars)
+    if len(grouped) < 2:
+        return []
+
+    return [("statute_unit", part, None, None, None) for part in grouped]
+
 DOCUMENT_ROOT_SPLITTERS: dict[str, DocumentRootSplitter] = {
     "title_preamble": split_ae_statute_preamble,
+    "eu_recitals": split_eu_recitals,
 }
 
 ARTICLE_SPLITTERS: dict[str, ArticleSplitter] = {

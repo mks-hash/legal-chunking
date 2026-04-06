@@ -38,12 +38,11 @@ def split_rulebook_rule_blocks(text: str) -> list[RuleBlock]:
     if numbers != sorted(numbers) or len(set(numbers)) != len(numbers):
         return []
     if any(
-        current - previous != 1
-        for previous, current in zip(numbers, numbers[1:], strict=False)
+        current - previous != 1 for previous, current in zip(numbers, numbers[1:], strict=False)
     ):
         return []
 
-    intro_lines = lines[heading_index:starts[0][0]]
+    intro_lines = lines[heading_index : starts[0][0]]
     blocks: list[RuleBlock] = []
     for block_index, (start_idx, number, inline_rest) in enumerate(starts):
         end_idx = starts[block_index + 1][0] if block_index + 1 < len(starts) else len(lines)

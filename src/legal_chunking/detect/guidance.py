@@ -81,13 +81,10 @@ def split_guidance_blocks(
 
 def _paragraph_guidance_blocks(text: str) -> list[GuidanceBlock]:
     paragraph_parts = [
-        paragraph.strip()
-        for paragraph in re.split(r"\n{2,}", text)
-        if paragraph.strip()
+        paragraph.strip() for paragraph in re.split(r"\n{2,}", text) if paragraph.strip()
     ]
     return [
-        GuidanceBlock(method="guidance_paragraph", text=paragraph)
-        for paragraph in paragraph_parts
+        GuidanceBlock(method="guidance_paragraph", text=paragraph) for paragraph in paragraph_parts
     ]
 
 

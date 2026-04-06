@@ -425,4 +425,6 @@ def extract_references(
             )
 
     return results
+
+
 __all__ = ["ParsedReference", "extract_references"]
