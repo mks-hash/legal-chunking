@@ -95,8 +95,7 @@ def test_real_pdf_frcp_us_extracts_text_and_usc_references() -> None:
     )
     assert (
         "Rule 11. Signing Pleadings, Motions, and Other Papers; "
-        "Representations to the Court; Sanctions"
-        in section_titles
+        "Representations to the Court; Sanctions" in section_titles
     )
     assert not any(title.startswith("Section 20.") for title in section_titles)
     assert not any(title.startswith("Paragraph 2403") for title in section_titles)
@@ -147,8 +146,8 @@ def test_real_pdf_ru_consumer_review_detects_guidance_points() -> None:
 
     section_titles = [section.title for section in document.sections]
     chunk_methods = {chunk.chunk_method for chunk in document.chunks}
-    point_numbers = [chunk.point_number for chunk in document.chunks[1:]]
-    case_references = [chunk.source_case_reference for chunk in document.chunks[1:8]]
+    point_numbers = [chunk.metadata.point_number for chunk in document.chunks[1:]]
+    case_references = [chunk.metadata.source_case_reference for chunk in document.chunks[1:8]]
 
     assert document.profile == "ru"
     assert document.chunk_policy == "guidance"
@@ -175,7 +174,7 @@ def test_real_pdf_ru_consumer_review_detects_guidance_points() -> None:
     ]
     assert chunk_methods == {"guidance_preamble", "guidance_point"}
     assert document.chunks[0].chunk_method == "guidance_preamble"
-    assert document.chunks[0].point_number is None
+    assert document.chunks[0].metadata.point_number is None
     assert point_numbers == [str(index) for index in range(1, 25)]
     assert case_references == [
         "от 28 ноября 2023 г. № 44-КГ23-24-К7",
@@ -197,8 +196,8 @@ def test_real_pdf_ru_plenum_detects_large_guidance_structure() -> None:
 
     section_titles = [section.title for section in document.sections]
     chunk_methods = {chunk.chunk_method for chunk in document.chunks}
-    point_numbers = [chunk.point_number for chunk in document.chunks[1:]]
-    case_references = {chunk.source_case_reference for chunk in document.chunks}
+    point_numbers = [chunk.metadata.point_number for chunk in document.chunks[1:]]
+    case_references = {chunk.metadata.source_case_reference for chunk in document.chunks}
 
     assert document.profile == "ru"
     assert document.chunk_policy == "guidance"
@@ -225,7 +224,7 @@ def test_real_pdf_ru_plenum_detects_large_guidance_structure() -> None:
     ]
     assert chunk_methods == {"guidance_preamble", "guidance_point"}
     assert document.chunks[0].chunk_method == "guidance_preamble"
-    assert document.chunks[0].point_number is None
+    assert document.chunks[0].metadata.point_number is None
     assert point_numbers == [str(index) for index in range(1, 183)]
     assert {
         "постановление Пленума Верховного Суда Российской Федерации от 19 июня 2006 года № 15",

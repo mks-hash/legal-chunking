@@ -30,10 +30,10 @@ def test_assemble_sections_builds_hierarchy_for_headings() -> None:
     assert len(sections) == 3
     assert sections[0].kind == "document_root"
     assert sections[1].kind == "article"
-    assert sections[1].article_number == "1"
+    assert sections[1].metadata.article_number == "1"
     assert sections[1].parent_section_id == sections[0].section_id
     assert sections[2].kind == "article"
-    assert sections[2].article_number == "1.1"
+    assert sections[2].metadata.article_number == "1.1"
     assert sections[2].parent_section_id == sections[0].section_id
 
 
@@ -108,10 +108,10 @@ def test_assemble_sections_builds_guidance_point_sections_from_ru_review_fixture
     assert sections[0].section_type == "document_root"
     assert sections[0].text == "Обзор судебной практики по делам о защите прав потребителей."
     assert sections[1].section_type == "review_point"
-    assert sections[1].legal_unit_type == LegalUnitType.GUIDANCE_POINT
-    assert sections[1].point_number == "17"
-    assert sections[1].legal_unit_number == "17"
-    assert sections[1].source_case_reference is not None
-    assert sections[1].source_case_number == "18-КГ23-155-К4"
-    assert sections[1].source_case_date == "12 декабря 2023 г."
-    assert sections[1].source_case_court == "Верховный Суд РФ"
+    assert sections[1].metadata.legal_unit_type == LegalUnitType.GUIDANCE_POINT
+    assert sections[1].metadata.point_number == "17"
+    assert sections[1].metadata.legal_unit_number == "17"
+    assert sections[1].metadata.source_case_reference is not None
+    assert sections[1].metadata.source_case_number == "18-КГ23-155-К4"
+    assert sections[1].metadata.source_case_date == "12 декабря 2023 г."
+    assert sections[1].metadata.source_case_court == "Верховный Суд РФ"
