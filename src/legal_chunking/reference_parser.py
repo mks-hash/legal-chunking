@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 
+from legal_chunking.errors import AssetConfigError
 from legal_chunking.manifest import ReferenceDocFamily, load_manifest
 from legal_chunking.numbering_markers import get_numbering_family_aliases
 from legal_chunking.profiles import (
@@ -56,6 +58,8 @@ class ParsedReference:
 
 
 _ARTICLE_TOKEN = r"(?:[A-Za-z]\.?\s*)?\d+[A-Za-z0-9()./-]*"
+
+
 @dataclass(slots=True, frozen=True)
 class _PatternSpec:
     scheme: str
@@ -96,32 +100,75 @@ def _build_asset_marker_patterns(
     return patterns
 
 
-def _ru_scoped_patterns(profile: str) -> list[re.Pattern[str]]:
-    article_marker = _build_marker_prefix_pattern(profile=profile, family="article_like")
-    point_marker = _build_marker_number_pattern(
-        profile=profile,
-        family="point_like",
-        number_pattern=r"\d+(?:\.\d+)*",
-    )
-    part_marker = _build_marker_number_pattern(
-        profile=profile,
-        family="part_like",
-        number_pattern=r"\d+",
-    )
-    return [
-        re.compile(
-            rf"(?:(?P<part>{part_marker})\s*)?"
-            rf"(?:(?P<paragraph>{point_marker})\s*)?"
-            rf"{article_marker}(?P<article>\d+(?:\.\d+)*)",
-            re.IGNORECASE,
-        ),
-        re.compile(
-            rf"(?:(?P<paragraph>{point_marker})\s*)?"
-            rf"(?:(?P<part>{part_marker})\s*)?"
-            rf"{article_marker}(?P<article>\d+(?:\.\d+)*)",
-            re.IGNORECASE,
-        ),
-    ]
+def _compile_scoped_patterns_from_asset(profile: str) -> list[re.Pattern[str]]:
+    payload = resolve_profile(profile).reference_patterns
+    if not isinstance(payload, Mapping):
+        raise AssetConfigError("Reference patterns payload must be an object")
+    raw_patterns = payload.get("scoped_patterns", [])
+    if not raw_patterns:
+        return []
+    if not isinstance(raw_patterns, list):
+        raise AssetConfigError("Reference scoped_patterns payload must be a list")
+
+    compiled: list[re.Pattern[str]] = []
+    for item in raw_patterns:
+        if not isinstance(item, Mapping):
+            raise AssetConfigError("Reference scoped pattern entry must be an object")
+
+        raw_fields = item.get("fields", {})
+        if not isinstance(raw_fields, Mapping) or not raw_fields:
+            raise AssetConfigError("Reference scoped pattern must define a non-empty fields object")
+
+        field_patterns: dict[str, tuple[str, bool]] = {}
+        for raw_name, raw_spec in raw_fields.items():
+            field_name = str(raw_name).strip().lower()
+            if field_name not in {"article", "paragraph", "part"}:
+                raise AssetConfigError(f"Unsupported reference scoped field '{raw_name}'")
+            if not isinstance(raw_spec, Mapping):
+                raise AssetConfigError("Reference scoped field spec must be an object")
+
+            family = str(raw_spec.get("family") or "").strip()
+            number_pattern = str(raw_spec.get("number_pattern") or "").strip()
+            required = bool(raw_spec.get("required", False))
+            if not family or not number_pattern:
+                raise AssetConfigError(
+                    f"Reference scoped field '{field_name}' must define family and number_pattern"
+                )
+
+            marker_pattern = (
+                _build_marker_prefix_pattern(profile=profile, family=family)
+                if field_name == "article"
+                else _build_marker_number_pattern(
+                    profile=profile,
+                    family=family,
+                    number_pattern=number_pattern,
+                )
+            )
+            pattern = (
+                rf"{marker_pattern}(?P<{field_name}>{number_pattern})"
+                if field_name == "article"
+                else rf"(?P<{field_name}>{marker_pattern})"
+            )
+            field_patterns[field_name] = (pattern, required)
+
+        order = item.get("order", ["article"])
+        if not isinstance(order, list) or not order:
+            raise AssetConfigError("Reference scoped pattern order must be a non-empty list")
+
+        pattern_parts: list[str] = []
+        for token in order:
+            key = str(token).strip().lower()
+            field_spec = field_patterns.get(key)
+            if not field_spec:
+                raise AssetConfigError(f"Unsupported reference scoped token '{token}'")
+            part, required = field_spec
+            if required:
+                pattern_parts.append(part)
+            else:
+                pattern_parts.append(rf"(?:{part}\s*)?")
+
+        compiled.append(re.compile(r"".join(pattern_parts), re.IGNORECASE))
+    return compiled
 
 
 def _split_marker_alias_groups(*, profile: str, family: str) -> tuple[list[str], list[str]]:
@@ -159,60 +206,6 @@ def _build_marker_number_pattern(*, profile: str, family: str, number_pattern: s
     return _build_marker_prefix_pattern(profile=profile, family=family) + number_pattern
 
 
-_GERMAN_SECTION_PATTERNS = [
-    re.compile(
-        rf"§\s*(?P<article>{_ARTICLE_TOKEN})\s*(?:(?P<paragraph>Abs\.?\s*\d+)\s*)?(?:(?P<part>Satz\s*\d+)\s*)?",
-        re.IGNORECASE,
-    ),
-]
-_COMMON_SECTION_ABBREV_PATTERNS = [
-    _PatternSpec(
-        scheme="section",
-        pattern=re.compile(rf"\bs\.?\s+(?P<article>{_ARTICLE_TOKEN})", re.IGNORECASE),
-    ),
-]
-_US_SECTION_SIGN_PATTERNS = [
-    _PatternSpec(
-        scheme="section",
-        pattern=re.compile(
-            rf"\b\d+\s+U\.?\s*S\.?\s*C\.?\s*§+\s*(?P<article>{_ARTICLE_TOKEN})",
-            re.IGNORECASE,
-        ),
-        doc_family="usc",
-    ),
-    _PatternSpec(
-        scheme="section",
-        pattern=re.compile(
-            rf"\b\d+\s+C\.?\s*F\.?\s*R\.?\s*§+\s*(?P<article>{_ARTICLE_TOKEN})",
-            re.IGNORECASE,
-        ),
-        doc_family="cfr",
-    ),
-]
-_DOC_FAMILY_PATTERNS: dict[str, list[_PatternSpec]] = {
-    "usc": [
-        _PatternSpec(
-            scheme="section",
-            pattern=re.compile(
-                rf"\b\d+\s+U\.?\s*S\.?\s*C\.?\s*§+\s*(?P<article>{_ARTICLE_TOKEN})",
-                re.IGNORECASE,
-            ),
-            doc_family="usc",
-        ),
-    ],
-    "cfr": [
-        _PatternSpec(
-            scheme="section",
-            pattern=re.compile(
-                rf"\b\d+\s+C\.?\s*F\.?\s*R\.?\s*§+\s*(?P<article>{_ARTICLE_TOKEN})",
-                re.IGNORECASE,
-            ),
-            doc_family="cfr",
-        ),
-    ],
-}
-
-
 def _asset_generic_patterns_for_profile(profile: str) -> list[_PatternSpec]:
     patterns: list[_PatternSpec] = []
     patterns.extend(
@@ -232,6 +225,48 @@ def _asset_generic_patterns_for_profile(profile: str) -> list[_PatternSpec]:
     return patterns
 
 
+def _compile_pattern_specs(payload: object) -> list[_PatternSpec]:
+    if not isinstance(payload, list):
+        raise AssetConfigError("Reference pattern payload must be a list")
+    specs: list[_PatternSpec] = []
+    for item in payload:
+        if not isinstance(item, Mapping):
+            raise AssetConfigError("Reference pattern entry must be an object")
+        scheme = str(item.get("scheme") or "").strip().lower()
+        regex = str(item.get("regex") or "").strip()
+        doc_family = str(item.get("doc_family") or "").strip().lower() or None
+        if not scheme or not regex:
+            raise AssetConfigError(f"Invalid reference pattern entry: {item}")
+        specs.append(
+            _PatternSpec(
+                scheme=scheme,
+                pattern=re.compile(regex, re.IGNORECASE),
+                doc_family=doc_family,
+            )
+        )
+    return specs
+
+
+def _asset_reference_patterns(
+    profile: str,
+    *,
+    doc_family: str | None = None,
+    include_global: bool = True,
+) -> list[_PatternSpec]:
+    payload = resolve_profile(profile).reference_patterns
+    if not isinstance(payload, Mapping):
+        raise AssetConfigError("Reference patterns payload must be an object")
+
+    patterns = _compile_pattern_specs(payload.get("patterns", [])) if include_global else []
+    raw_doc_family_patterns = payload.get("doc_family_patterns", {})
+    if not isinstance(raw_doc_family_patterns, Mapping):
+        raise AssetConfigError("Reference doc_family_patterns payload must be an object")
+    family = (doc_family or "").strip().lower()
+    if family:
+        patterns.extend(_compile_pattern_specs(raw_doc_family_patterns.get(family, [])))
+    return patterns
+
+
 def _jurisdiction_scheme_patterns(
     profile: str,
     *,
@@ -243,50 +278,25 @@ def _jurisdiction_scheme_patterns(
     generic_patterns: list[_PatternSpec] = []
 
     if code == "ru":
-        scoped_patterns = _ru_scoped_patterns(code)
-    elif code in {"de", "ch"}:
-        scoped_patterns = list(_GERMAN_SECTION_PATTERNS)
-        generic_patterns.extend(
-            _build_asset_marker_patterns(
-                profile="eu",
-                family="section_like",
-                scheme="section",
-            )
-        )
+        scoped_patterns = _compile_scoped_patterns_from_asset(code)
     elif code == "us":
         generic_patterns.extend(_asset_generic_patterns_for_profile(code))
-        if family in _DOC_FAMILY_PATTERNS:
-            generic_patterns.extend(_DOC_FAMILY_PATTERNS[family])
-        else:
-            generic_patterns.extend(_US_SECTION_SIGN_PATTERNS)
+        generic_patterns.extend(
+            _asset_reference_patterns(
+                code,
+                doc_family=family,
+                include_global=not bool(family),
+            )
+        )
     elif code == "eu":
         generic_patterns.extend(_asset_generic_patterns_for_profile(code))
-        generic_patterns.extend(
-            [
-                _PatternSpec(
-                    scheme="recital",
-                    pattern=re.compile(
-                        rf"\bRecital\s+(?P<article>{_ARTICLE_TOKEN})",
-                        re.IGNORECASE,
-                    ),
-                ),
-                _PatternSpec(
-                    scheme="recital",
-                    pattern=re.compile(
-                        rf"\bRecital\s*\((?P<article>{_ARTICLE_TOKEN})\)",
-                        re.IGNORECASE,
-                    ),
-                ),
-            ]
-        )
+        generic_patterns.extend(_asset_reference_patterns(code, doc_family=family))
     elif code == "ae":
         generic_patterns.extend(_asset_generic_patterns_for_profile(code))
+        generic_patterns.extend(_asset_reference_patterns(code, doc_family=family))
     else:
         generic_patterns.extend(_asset_generic_patterns_for_profile("generic"))
-        generic_patterns.extend(_COMMON_SECTION_ABBREV_PATTERNS)
-
-    if code != "us" and family in _DOC_FAMILY_PATTERNS:
-        generic_patterns = [*_DOC_FAMILY_PATTERNS[family], *generic_patterns]
+        generic_patterns.extend(_asset_reference_patterns("generic", doc_family=family))
     return scoped_patterns, generic_patterns
 
 
