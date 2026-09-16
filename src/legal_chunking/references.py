@@ -5,90 +5,33 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
+from legal_chunking.legal_normalization import (
+    approved_number,
+    normalize_number_scripts,
+    normalize_structural_numbering,
+    numeric_script_rules,
+    repair_patterns,
+)
 from legal_chunking.normalize import normalize_extracted_text
-from legal_chunking.numbering_markers import build_numbering_marker_pattern
+from legal_chunking.numbering_markers import get_numbering_aliases
 from legal_chunking.profiles import resolve_profile
 from legal_chunking.reference_context import ReferenceContextResolver
 
-_SUPERSCRIPT_TRANS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
-_SUBSCRIPT_TRANS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
-_SUPERSCRIPT_AFTER_DOT_RE = re.compile(r"(?<=\d)\.([⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
-_SUPERSCRIPT_AFTER_DIGIT_RE = re.compile(r"(?<=\d)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
-_SUPERSCRIPT_SUFFIX_RE = re.compile(r"(?P<base>\d{1,4})(?P<suffix>[⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
+_SCRIPT_SUFFIX_PATTERN, _SUPERSCRIPT_TRANS, _SUBSCRIPT_TRANS = numeric_script_rules()
+_SUPERSCRIPT_SUFFIX_RE = re.compile(
+    r"(?P<base>\d{1,4})(?P<suffix>" + _SCRIPT_SUFFIX_PATTERN.pattern + r")"
+)
 _STRUCTURED_SUFFIX_RE = re.compile(
     r"(?P<base>\d{2,4})(?:\((?P<paren>\d{1,2})\)|_(?P<underscore>\d{1,2})|-(?P<hyphen>\d)(?!\d))"
 )
 _WORD_SUPERSCRIPT_FOOTNOTE_RE = re.compile(
-    r"(?P<word>[A-Za-zА-Яа-яЁё]+)(?P<footnote>[⁰¹²³⁴⁵⁶⁷⁸⁹]+)"
+    r"(?P<word>[A-Za-zА-Яа-яЁё]+)(?P<footnote>" + _SCRIPT_SUFFIX_PATTERN.pattern + r")"
 )
 _WORD_BRACKET_FOOTNOTE_RE = re.compile(r"(?P<word>[A-Za-zА-Яа-яЁё]+)\[(?P<footnote>\d+)\]")
 
 
 def normalize_numeric_scripts(text: str) -> str:
-    normalized = _SUPERSCRIPT_AFTER_DOT_RE.sub(
-        lambda match: "." + match.group(1).translate(_SUPERSCRIPT_TRANS),
-        text or "",
-    )
-    normalized = _SUPERSCRIPT_AFTER_DIGIT_RE.sub(
-        lambda match: "." + match.group(1).translate(_SUPERSCRIPT_TRANS),
-        normalized,
-    )
-    return normalized.translate(_SUBSCRIPT_TRANS)
-
-
-@lru_cache(maxsize=8)
-def _ru_numbering_rules(profile: str) -> dict[str, re.Pattern[str]]:
-    article_keyword = build_numbering_marker_pattern(profile=profile, family="article_like")
-    chapter_keyword = build_numbering_marker_pattern(profile=profile, family="chapter_like")
-    point_keyword = build_numbering_marker_pattern(profile=profile, family="point_like")
-    subpoint_keyword = build_numbering_marker_pattern(profile=profile, family="subpoint_like")
-    paragraph_keyword = build_numbering_marker_pattern(profile=profile, family="paragraph_like")
-    part_keyword = build_numbering_marker_pattern(profile=profile, family="part_like")
-    legal_source_context = (
-        r"(?:федеральн(?:ого|ым|ом)?\s+закона|закона|кодекса|"
-        r"гк\s+рф|ук\s+рф|апк\s+рф|гпк\s+рф|нк\s+рф|коап\s+рф|"
-        r"гражданского|уголовного|арбитражного|налогового|"
-        r"конституции|конституционного\s+закона|[«\"])"
-    )
-    merged_article_followup_context = (
-        r"(?:"
-        + legal_source_context
-        + r"|"
-        + rf"{part_keyword}|{point_keyword}|{chapter_keyword}|{article_keyword}|ст\.?"
-        + r")"
-    )
-    return {
-        "article_bracket_footnote_re": re.compile(
-            rf"(?i)\b({article_keyword}\s+\d{{1,5}})\s*\[\d+\]"
-        ),
-        "legal_ref_split_decimal_re": re.compile(
-            r"(?i)\b("
-            + (
-                rf"(?:{article_keyword}|ст\.?|{point_keyword}|{part_keyword}|"
-                rf"{subpoint_keyword}|{paragraph_keyword})"
-            )
-            + r"\s+\d{1,4}"
-            + r")\s+(\d{1,3})(?=\s+(?:"
-            + r"стат(?:ья|ьи|ье|ью|и)|ст\.?|"
-            + legal_source_context
-            + r"))"
-        ),
-        "legal_ref_merged_decimal_re": re.compile(
-            rf"(?i)\b((?:{article_keyword}|ст\.?)\s+)(?P<number>\d{{4,5}})"
-            rf"(?=(?:\s*(?:,|\)|;))?\s+{merged_article_followup_context})"
-        ),
-        "legal_chapter_merged_decimal_re": re.compile(
-            rf"(?i)\b((?:{chapter_keyword})\s+)(?P<number>\d{{3,4}})"
-            rf"(?=(?:\s*(?:,|\)|;))?\s+{merged_article_followup_context})"
-        ),
-        "legal_range_end_merged_decimal_re": re.compile(
-            rf"(?i)\b((?:{point_keyword}|{subpoint_keyword}|{paragraph_keyword}|{part_keyword})\s+\d{{1,3}}\s*[–-]\s*)(?P<number>\d{{2}})"
-            rf"(?=\s+{article_keyword}|(?=\s+ст\.?))"
-        ),
-        "heading_merged_decimal_re": re.compile(
-            rf"(?im)^(?P<indent>\s*)(?P<number>\d{{3}})(?P<tail>\.?\s+(?:{legal_source_context}).*)$"
-        ),
-    }
+    return normalize_number_scripts(text)
 
 
 def normalize_article_number(value: str | None) -> str | None:
@@ -120,17 +63,37 @@ def _has_reference_context(text: str, *, start: int, end: int, profile: str) -> 
     return resolver.detect_context(window).is_legal_reference
 
 
+@lru_cache(maxsize=8)
+def _adjacent_number_context(profile: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
+    resolved = resolve_profile(profile)
+    aliases = get_numbering_aliases(
+        profile=resolved.code, families=resolved.normalization_policy.get("context_families", [])
+    )
+    markers = "|".join(re.escape(a) for a in sorted(aliases, key=len, reverse=True))
+    before = re.compile(r"(?<!\w)(?:" + markers + r")\s*$", re.IGNORECASE)
+    sources = "|".join(re.escape(a) for f in resolved.doc_families for a in f.aliases)
+    after = re.compile(r"^\s+(?:" + sources + r")(?!\w)" if sources else r"(?!)", re.IGNORECASE)
+    return before, after
+
+
+def _has_number_context(text: str, *, start: int, end: int, profile: str) -> bool:
+    before, after = _adjacent_number_context(resolve_profile(profile).code)
+    return before.search(text[:start]) is not None or after.match(text[end:]) is not None
+
+
 def _normalize_contextual_reference_suffixes(text: str, *, profile: str) -> str:
     def replace_superscript(match: re.Match[str]) -> str:
-        if not _has_reference_context(text, start=match.start(), end=match.end(), profile=profile):
+        if not _has_number_context(text, start=match.start(), end=match.end(), profile=profile):
             return match.group(0)
         suffix = match.group("suffix").translate(_SUPERSCRIPT_TRANS)
         return f"{match.group('base')}.{suffix}"
 
-    normalized = _SUPERSCRIPT_SUFFIX_RE.sub(replace_superscript, text)
+    normalized = normalize_structural_numbering(text, profile=profile)
+    # Bare number next to a manifest source alias is a reference shorthand.
+    normalized = _SUPERSCRIPT_SUFFIX_RE.sub(replace_superscript, normalized)
 
     def replace_structured(match: re.Match[str]) -> str:
-        if not _has_reference_context(
+        if not _has_number_context(
             normalized,
             start=match.start(),
             end=match.end(),
@@ -140,6 +103,8 @@ def _normalize_contextual_reference_suffixes(text: str, *, profile: str) -> str:
         suffix = match.group("paren") or match.group("underscore") or match.group("hyphen") or ""
         return f"{match.group('base')}.{suffix}"
 
+    if not resolve_profile(profile).normalization_policy.get("structured_suffix_context", False):
+        return normalized
     return _STRUCTURED_SUFFIX_RE.sub(replace_structured, normalized)
 
 
@@ -165,74 +130,51 @@ def _drop_contextual_footnote_markers(text: str, *, profile: str) -> str:
 
 
 def _repair_legal_article_footnotes(text: str, *, profile: str) -> str:
-    if resolve_profile(profile).code != "ru":
+    if not repair_patterns(resolve_profile(profile).code):
         return text
-    rules = _ru_numbering_rules(profile)
+    rules = repair_patterns(resolve_profile(profile).code)
     return rules["article_bracket_footnote_re"].sub(r"\1", text)
 
 
 def _repair_split_legal_decimals(text: str, *, profile: str) -> str:
-    if resolve_profile(profile).code != "ru":
+    if not repair_patterns(resolve_profile(profile).code):
         return text
-    rules = _ru_numbering_rules(profile)
+    rules = repair_patterns(resolve_profile(profile).code)
     return rules["legal_ref_split_decimal_re"].sub(
         lambda match: f"{match.group(1)}.{match.group(2)}",
         text,
     )
 
 
-def _replace_with_decimal(prefix: str, raw_number: str, *, base_len: int) -> str:
-    if len(raw_number) <= base_len:
-        return prefix + raw_number
-    base = raw_number[:base_len]
-    suffix = raw_number[base_len:]
-    if not suffix or suffix.startswith("0"):
-        return prefix + raw_number
-    return f"{prefix}{base}.{suffix}"
-
-
 def _repair_merged_article_decimals(text: str, *, profile: str) -> str:
-    if resolve_profile(profile).code != "ru":
+    if not repair_patterns(resolve_profile(profile).code):
         return text
 
-    rules = _ru_numbering_rules(profile)
+    rules = repair_patterns(resolve_profile(profile).code)
     normalized = rules["legal_ref_merged_decimal_re"].sub(
-        lambda match: _replace_with_decimal(
-            match.group(1),
-            match.group("number"),
-            base_len=3,
-        ),
+        lambda match: match.group(1) + approved_number(profile, "article", match.group("number")),
         text,
     )
     normalized = rules["legal_chapter_merged_decimal_re"].sub(
-        lambda match: _replace_with_decimal(
-            match.group(1),
-            match.group("number"),
-            base_len=2,
-        ),
+        lambda match: match.group(1) + approved_number(profile, "chapter", match.group("number")),
         normalized,
     )
     return rules["legal_range_end_merged_decimal_re"].sub(
-        lambda match: (
-            f"{match.group(1)}{match.group('number')[0]}.{match.group('number')[1]}"
-            if not match.group("number").endswith("0")
-            else match.group(0)
-        ),
+        lambda match: match.group(1) + approved_number(profile, "range_end", match.group("number")),
         normalized,
     )
 
 
 def _repair_heading_merged_legal_decimals(text: str, *, profile: str) -> str:
-    if resolve_profile(profile).code != "ru":
+    if not repair_patterns(resolve_profile(profile).code):
         return text
 
-    rules = _ru_numbering_rules(profile)
+    rules = repair_patterns(resolve_profile(profile).code)
     return rules["heading_merged_decimal_re"].sub(
         lambda match: (
-            f"{match.group('indent')}{match.group('number')[:2]}.{match.group('number')[2]}"
-            f"{match.group('tail')}"
-            if not match.group("number").endswith("0")
-            else match.group(0)
+            match.group("indent")
+            + approved_number(profile, "chapter", match.group("number"))
+            + match.group("tail")
         ),
         text,
     )

@@ -96,6 +96,7 @@ def assemble_sections(
             offset=line_offset,
             profile=profile,
             chunk_policy=chunk_policy,
+            in_article=any(s.kind == "article" for s in stack),
         )
         if trace is not None:
             trace.emit(

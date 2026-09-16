@@ -29,7 +29,10 @@ def compile_heading_patterns(profile: str) -> list[tuple[str, re.Pattern[str]]]:
             raise AssetConfigError(f"Invalid heading pattern entry: {item}")
         if section_type not in ALLOWED_SECTION_TYPES:
             raise AssetConfigError(f"Unsupported section_type '{section_type}'")
-        compiled.append((section_type, re.compile(regex, re.IGNORECASE)))
+        try:
+            compiled.append((section_type, re.compile(regex, re.IGNORECASE)))
+        except re.error as exc:
+            raise AssetConfigError(f"Invalid heading regex for {section_type}") from exc
     return compiled
 
 

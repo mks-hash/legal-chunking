@@ -5,18 +5,19 @@ document-structuring engine for legal texts.
 
 It normalizes text, recovers legal structure, builds chunks from legal boundaries,
 and extracts structured citations. It is a Python library with an optional PDF
-adapter, not a retrieval or LLM framework.
+adapter and explicit layout/OCR support, not a retrieval or LLM framework.
 
 ## Status and scope
 
 Pre-alpha: package version `0.1.0`, Python 3.14+. The text core has no runtime
-dependencies. PDF support uses the optional PyMuPDF extra.
+dependencies. PDF support uses the optional PyMuPDF extra; layout/OCR support uses the `ocr` extra
+and separately installed Tesseract traineddata.
 
 Enabled profiles: `generic`, `ru`, `us`, `eu`, `ae`. They support tested document
 forms, not every legal text in a jurisdiction. Current capabilities include heading
 hierarchy, guidance points, rule blocks, definition entries, policy-aware splitting,
-content hashes and optional runtime trace. Trace coverage is partial; OCR, faithful
-table reconstruction and end-to-end PDF page provenance are not guaranteed.
+content hashes and optional runtime trace. Trace coverage is partial; faithful table reconstruction, OCR accuracy and
+end-to-end PDF page provenance are not guaranteed.
 
 Retrieval, ranking, embeddings, vector stores, LLM reasoning, web services and
 product workflows are outside the scope of this engine.
@@ -27,6 +28,8 @@ product workflows are outside the scope of this engine.
 pip install legal-chunking
 # Optional PDF support:
 pip install 'legal-chunking[pdf]'
+# Optional layout/OCR adapter (language data is installed separately):
+pip install 'legal-chunking[ocr]'
 ```
 
 ```python
@@ -43,6 +46,9 @@ document = chunk_text(
 pdf_document = chunk_pdf(
     "rulebook.pdf", profile="ae", doc_kind="primary_legislation"
 )
+# An explicit OCR path, after installing the ocr extra and traineddata:
+# scan_document = chunk_pdf("scan.pdf", backend="pymupdf4llm", ocr="auto",
+#                           ocr_language="rus+eng")
 references = extract_references("пункт 3 статьи 450 ГК РФ", profile="ru")
 ```
 
@@ -67,7 +73,8 @@ legal-chunking review --path rulebook.pdf --profile ae --output snapshots/review
 
 `chunk` emits JSON chunk records including text; `structure` emits sections;
 `explain` emits runtime trace; `review` emits human-readable previews.
-All commands accept `--output`. The JSON format is not a frozen/versioned schema.
+All commands accept `--output`. PDF inputs also accept `--backend`, `--ocr`,
+`--ocr-language` and `--ocr-dpi`; see [extraction](docs/extraction.md). The JSON format is not a frozen/versioned schema.
 
 [Representative output samples](examples/output_samples/) illustrate selected
 forms; they are not canonical golden fixtures or evidence of full corpus quality.

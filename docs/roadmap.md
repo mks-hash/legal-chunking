@@ -5,6 +5,17 @@ pre-alpha (`0.1.0`). Legal Chunking's focus is extraction-agnostic, deterministi
 explainable document structuring; broader jurisdiction coverage follows engine
 correctness and evidence, rather than driving ad hoc rules.
 
+## Completed alpha improvements
+
+The engine now shares marker-scoped numeric-script normalization, keeps fitting
+statute primary units together, binds coordinated RU references, distinguishes review
+body points from approval directives and emits a boundary event for every chunk.
+PDF extraction has explicit native/layout backends and optional Tesseract OCR,
+with isolated adapter execution and reproducibility metadata. Local corpus regression
+coverage includes APK and the 2026 review. This is not schema freeze or a stable
+release/readiness claim; full typed addresses, occurrence anchors and page provenance
+still need concrete contracts.
+
 ## 1. Establish trustworthy regression and quality evidence
 
 Protect existing legal forms across all enabled profiles. Use the current local

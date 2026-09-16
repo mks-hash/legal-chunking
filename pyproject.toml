@@ -34,12 +34,17 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = [
-  "PyMuPDF>=1.27.2.2",
-  "pytest>=9.0.2",
-  "ruff>=0.15.8",
+  "PyMuPDF>=1.28.2",
+  "pymupdf4llm~=1.28.2",
+  "pytest>=9.1.1",
+  "ruff>=0.16.6",
 ]
 pdf = [
-  "PyMuPDF>=1.27.2.2",
+  "PyMuPDF>=1.28.2",
+]
+
+ocr = [
+  "pymupdf4llm~=1.28.2",
 ]
 
 [project.scripts]

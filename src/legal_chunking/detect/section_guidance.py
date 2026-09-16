@@ -19,7 +19,7 @@ def assemble_guidance_sections(
     source_name: str,
     trace: TraceCollector | None = None,
 ) -> list[Section] | None:
-    normalized = normalize_guidance_text(text)
+    normalized = normalize_guidance_text(text, profile=profile)
     if not normalized:
         return []
 
@@ -27,6 +27,7 @@ def assemble_guidance_sections(
         normalized,
         allow_noninitial_sequence=True,
         min_points=1,
+        profile=profile,
     )
     if not any(block.method == "guidance_point" for block in blocks):
         return None

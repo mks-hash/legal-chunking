@@ -159,3 +159,80 @@ def test_eu_manifest_requires_doc_family_for_reference_parsing() -> None:
 
     assert manifest.profiles["eu"].reference is not None
     assert manifest.profiles["eu"].reference.require_doc_family is True
+
+
+def test_document_family_aliases_do_not_match_inside_words() -> None:
+    assert resolve_doc_family("ru", "пункт 3") is None
+    assert resolve_doc_family("ru", "ОГК РФ") is None
+    assert resolve_doc_family("ru", "УК") is not None
+
+
+def test_invalid_runtime_policy_fails_instead_of_silently_falling_back() -> None:
+    import pytest
+
+    from legal_chunking.errors import AssetConfigError
+    from legal_chunking.runtime_policy import parse_runtime_policy
+
+    for payload in [
+        {"runtime": []},
+        {"runtime": {"pdf": []}},
+        {"runtime": {"pdf": {"trim_rules_body": "false"}}},
+        {"runtime": {"chunk": {"article_splitter": 3}}},
+        {"runtime": {"pdf": {"drop_line_regexes": "bad"}}},
+    ]:
+        with pytest.raises(AssetConfigError):
+            parse_runtime_policy(payload)
+
+
+def test_unknown_splitter_raises_instead_of_downgrading() -> None:
+    from dataclasses import replace
+
+    import pytest
+
+    from legal_chunking.chunk.runtime import build_chunks
+    from legal_chunking.errors import AssetConfigError
+    from legal_chunking.profiles import select_chunk_fallback
+
+    resolved = resolve_profile("generic")
+    changed = replace(
+        resolved,
+        runtime=replace(
+            resolved.runtime, chunk=replace(resolved.runtime.chunk, article_splitter="typo")
+        ),
+    )
+    with pytest.raises(AssetConfigError, match="Unknown chunk splitter"):
+        build_chunks(
+            [],
+            source_name="test",
+            resolved_profile=changed,
+            chunk_policy="statute",
+            fallback=select_chunk_fallback(resolved.chunking_policy),
+        )
+
+
+def test_packaged_assets_are_isolated_between_callers() -> None:
+    from legal_chunking.manifest import load_asset_json
+
+    first = load_asset_json("chunking_policy/generic.v1.json")
+    first["fallback"]["max_chars"] = 1
+    assert load_asset_json("chunking_policy/generic.v1.json")["fallback"]["max_chars"] == 1200
+    one = resolve_profile("ru")
+    one.numbering_markers["families"]["article_like"].clear()
+    assert resolve_profile("ru").numbering_markers["families"]["article_like"]
+
+
+def test_profile_alias_collision_is_rejected() -> None:
+    import pytest
+
+    from legal_chunking.errors import AssetConfigError
+    from legal_chunking.manifest import _parse_manifest
+
+    with pytest.raises(AssetConfigError, match="Ambiguous profile alias"):
+        _parse_manifest(
+            {
+                "profiles": {
+                    "one": {"enabled": True, "aliases": ["same"]},
+                    "two": {"enabled": True, "aliases": ["same"]},
+                }
+            }
+        )

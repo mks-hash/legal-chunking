@@ -13,8 +13,10 @@ python -m ruff check src tests
 python -m ruff format --check src tests
 ```
 
-The dev extra includes pytest, Ruff and PyMuPDF. Base text usage has no runtime
-dependencies; PDF users install `legal-chunking[pdf]`. Use repository-defined
+The dev extra includes pytest, Ruff, PyMuPDF and PyMuPDF4LLM. Base text usage has no runtime
+dependencies; PDF users install `legal-chunking[pdf]`; layout/OCR users install
+`legal-chunking[ocr]` and supply Tesseract traineddata. Tested versions for this change
+are PyMuPDF/PyMuPDF4LLM 1.28.2, pytest 9.1.1 and Ruff 0.16.6. Use repository-defined
 versions and official upstream documentation for unresolved version-sensitive
 behavior. No Docker, frontend, MCP or hosted-service setup is required here.
 
@@ -33,10 +35,17 @@ asset or identity changes. Assert meaningful structure, metadata and preserved
 text, not just counts. Add small public fixtures only with redistribution rights;
 update existing tests where they already own the regression.
 
-The public suite includes synthetic PDFs and therefore requires the dev extra.
+The public suite includes synthetic PDFs and layout extraction and therefore
+requires the dev extra.
 Real PDF tests look in `.develop/testings/` and skip when individual files are
 missing. A fresh clone does not contain these PDFs. Report passed and skipped
 checks separately; skipping the corpus does not validate real-document quality.
+The local scanned-PDF integration test looks for
+`.develop/testings/ocr-data/eng.traineddata` and explicitly skips when absent. It
+checks real recognition, source immutability, repeated results, blank pages and clean
+CLI JSON. The runtime does not depend on this local path: callers supply traineddata
+through their own `TESSDATA_PREFIX`.
+
 Existing local PDF assertions can fail independently of the synthetic suite;
 investigate source, extraction and structure before changing expected output.
 

@@ -4,6 +4,7 @@ from legal_chunking.api import chunk_pdf, chunk_text
 from legal_chunking.detect.sections import assemble_sections
 from legal_chunking.errors import (
     AssetConfigError,
+    ExtractionError,
     InvalidProfileError,
     LegalChunkingError,
     PdfDependencyError,
@@ -15,6 +16,7 @@ __all__ = [
     "AssetConfigError",
     "Chunk",
     "Document",
+    "ExtractionError",
     "InvalidProfileError",
     "LegalChunkingError",
     "ParsedReference",

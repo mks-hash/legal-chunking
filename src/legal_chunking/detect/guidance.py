@@ -5,13 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-RE_GUIDANCE_POINT_START = re.compile(
-    r"(?m)^(?:(?i:пункт)\s+)?(?P<num>\d{1,3})\.\s+(?=[A-ZА-ЯЁ])",
-)
-RE_GUIDANCE_POINT_CITATION_PREFIX = re.compile(
-    r"^(определение\s+судебной\s+коллегии|см\.\s+также)\b",
-    re.IGNORECASE,
-)
+from .guidance_policy import guidance_policy
 
 
 @dataclass(slots=True, frozen=True)
@@ -26,19 +20,38 @@ def split_guidance_blocks(
     *,
     allow_noninitial_sequence: bool = False,
     min_points: int = 3,
+    profile: str = "generic",
 ) -> list[GuidanceBlock]:
     stripped = (text or "").strip()
     if not stripped:
         return []
 
-    raw_matches = list(RE_GUIDANCE_POINT_START.finditer(stripped))
+    policy = guidance_policy(profile)
+    body_start = policy.body_start.search(stripped)
+    raw_matches = [
+        m
+        for m in policy.point_start.finditer(stripped)
+        if body_start is None or m.start() >= body_start.end()
+    ]
     matches: list[re.Match[str]] = []
     for match in raw_matches:
         if is_admissible_guidance_point_match(
             stripped,
             match,
             allow_noninitial_sequence=allow_noninitial_sequence,
+            profile=profile,
         ):
+            number = int(match.group("num"))
+            if matches:
+                previous = int(matches[-1].group("num"))
+                if number <= previous or number - previous > policy.max_forward_gap:
+                    continue
+                if number > previous + 1 and any(
+                    int(later.group("num")) == previous + 1
+                    for later in raw_matches
+                    if later.start() > match.start()
+                ):
+                    continue
             matches.append(match)
     if len(matches) < min_points:
         return [GuidanceBlock(method="guidance_paragraph", text=stripped)]
@@ -80,12 +93,7 @@ def split_guidance_blocks(
 
 
 def _paragraph_guidance_blocks(text: str) -> list[GuidanceBlock]:
-    paragraph_parts = [
-        paragraph.strip() for paragraph in re.split(r"\n{2,}", text) if paragraph.strip()
-    ]
-    return [
-        GuidanceBlock(method="guidance_paragraph", text=paragraph) for paragraph in paragraph_parts
-    ]
+    return [GuidanceBlock(method="guidance_paragraph", text=text)]
 
 
 def is_admissible_guidance_point_match(
@@ -93,11 +101,12 @@ def is_admissible_guidance_point_match(
     match: re.Match[str],
     *,
     allow_noninitial_sequence: bool,
+    profile: str = "generic",
 ) -> bool:
-    _ = allow_noninitial_sequence
+    policy = guidance_policy(profile)
     if match.start() > 0:
         prefix_tail = text[: match.start()].rstrip()
-        if prefix_tail.endswith("№"):
+        if policy.excluded_prefix.search(prefix_tail):
             return False
 
     remainder = text[match.end() :].lstrip()
@@ -106,14 +115,13 @@ def is_admissible_guidance_point_match(
     first_line = remainder.splitlines()[0].strip()
     if not first_line:
         return False
-    if RE_GUIDANCE_POINT_CITATION_PREFIX.match(first_line):
+    if policy.citation_prefix.match(first_line):
         return False
     return True
 
 
 __all__ = [
     "GuidanceBlock",
-    "RE_GUIDANCE_POINT_START",
     "is_admissible_guidance_point_match",
     "split_guidance_blocks",
 ]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from itertools import product
 
 from legal_chunking.errors import AssetConfigError
 from legal_chunking.manifest import ReferenceDocFamily, load_manifest
@@ -14,7 +15,11 @@ from legal_chunking.profiles import (
     resolve_doc_family_near,
     resolve_profile,
 )
-from legal_chunking.references import normalize_article_number, normalize_reference_text
+from legal_chunking.references import (
+    normalize_article_number,
+    normalize_numeric_scripts,
+    normalize_reference_text,
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -38,7 +43,11 @@ class ParsedReference:
 
     def to_canonical_parts(self, *, jurisdiction: str) -> dict[str, str]:
         normalized_jurisdiction = resolve_profile(jurisdiction).code
-        article_number = normalize_article_number(self.article_number)
+        article_number = (
+            normalize_article_number(self.article_number)
+            if normalized_jurisdiction == "ru"
+            else normalize_numeric_scripts(self.article_number or "").strip()
+        )
         if not article_number:
             raise ValueError("ParsedReference must contain article_number for canonical parts")
         parts = {
@@ -100,7 +109,7 @@ def _build_asset_marker_patterns(
     return patterns
 
 
-def _compile_scoped_patterns_from_asset(profile: str) -> list[re.Pattern[str]]:
+def _compile_scoped_patterns_from_asset(profile: str) -> list[_PatternSpec]:
     payload = resolve_profile(profile).reference_patterns
     if not isinstance(payload, Mapping):
         raise AssetConfigError("Reference patterns payload must be an object")
@@ -110,7 +119,7 @@ def _compile_scoped_patterns_from_asset(profile: str) -> list[re.Pattern[str]]:
     if not isinstance(raw_patterns, list):
         raise AssetConfigError("Reference scoped_patterns payload must be a list")
 
-    compiled: list[re.Pattern[str]] = []
+    compiled: list[_PatternSpec] = []
     for item in raw_patterns:
         if not isinstance(item, Mapping):
             raise AssetConfigError("Reference scoped pattern entry must be an object")
@@ -135,20 +144,22 @@ def _compile_scoped_patterns_from_asset(profile: str) -> list[re.Pattern[str]]:
                     f"Reference scoped field '{field_name}' must define family and number_pattern"
                 )
 
-            marker_pattern = (
-                _build_marker_prefix_pattern(profile=profile, family=family)
-                if field_name == "article"
-                else _build_marker_number_pattern(
-                    profile=profile,
-                    family=family,
-                    number_pattern=number_pattern,
-                )
-            )
-            pattern = (
-                rf"{marker_pattern}(?P<{field_name}>{number_pattern})"
-                if field_name == "article"
-                else rf"(?P<{field_name}>{marker_pattern})"
-            )
+            if raw_spec.get("range", False):
+                syntax = resolve_profile(profile).numbering_markers.get("reference_syntax", {})
+                ranges = syntax.get("range_separators", [])
+                if not ranges or not all(isinstance(x, str) and x for x in ranges):
+                    raise AssetConfigError("Reference ranges require range separators")
+                range_pattern = "|".join(re.escape(x) for x in ranges)
+                number_pattern = rf"{number_pattern}(?:\s*(?:{range_pattern})\s*{number_pattern})?"
+            if raw_spec.get("coordinated_list", False):
+                syntax = resolve_profile(profile).numbering_markers.get("reference_syntax", {})
+                separators = syntax.get("list_separators", []) + syntax.get("list_conjunctions", [])
+                if not separators or not all(isinstance(x, str) and x for x in separators):
+                    raise AssetConfigError("Coordinated references require list separators")
+                separator = "|".join(re.escape(x) for x in separators)
+                number_pattern = rf"{number_pattern}(?:\s*(?:{separator})\s*{number_pattern})*"
+            marker_pattern = _build_marker_prefix_pattern(profile=profile, family=family)
+            pattern = rf"{marker_pattern}(?P<{field_name}>{number_pattern})"
             field_patterns[field_name] = (pattern, required)
 
         order = item.get("order", ["article"])
@@ -167,7 +178,13 @@ def _compile_scoped_patterns_from_asset(profile: str) -> list[re.Pattern[str]]:
             else:
                 pattern_parts.append(rf"(?:{part}\s*)?")
 
-        compiled.append(re.compile(r"".join(pattern_parts), re.IGNORECASE))
+        scheme = str(item.get("scheme") or "article")
+        compiled.append(
+            _PatternSpec(
+                scheme=scheme,
+                pattern=_compile_reference_regex(r"".join(pattern_parts) + r"(?!\w|\.\d|[-–—]\d)"),
+            )
+        )
     return compiled
 
 
@@ -212,17 +229,28 @@ def _asset_generic_patterns_for_profile(profile: str) -> list[_PatternSpec]:
         _build_asset_marker_patterns(
             profile=profile,
             family="article_like",
-            scheme="article",
+            scheme=resolve_profile(profile)
+            .reference_patterns.get("generic_schemes", {})
+            .get("article_like", "article"),
         )
     )
     patterns.extend(
         _build_asset_marker_patterns(
             profile=profile,
             family="section_like",
-            scheme="section",
+            scheme=resolve_profile(profile)
+            .reference_patterns.get("generic_schemes", {})
+            .get("section_like", "section"),
         )
     )
     return patterns
+
+
+def _compile_reference_regex(regex: str) -> re.Pattern[str]:
+    try:
+        return re.compile(regex, re.IGNORECASE)
+    except re.error as exc:
+        raise AssetConfigError("Invalid reference pattern regex") from exc
 
 
 def _compile_pattern_specs(payload: object) -> list[_PatternSpec]:
@@ -240,7 +268,7 @@ def _compile_pattern_specs(payload: object) -> list[_PatternSpec]:
         specs.append(
             _PatternSpec(
                 scheme=scheme,
-                pattern=re.compile(regex, re.IGNORECASE),
+                pattern=_compile_reference_regex(regex),
                 doc_family=doc_family,
             )
         )
@@ -264,6 +292,9 @@ def _asset_reference_patterns(
     family = (doc_family or "").strip().lower()
     if family:
         patterns.extend(_compile_pattern_specs(raw_doc_family_patterns.get(family, [])))
+    known_families = {family.id for family in resolve_profile(profile).doc_families}
+    if any(spec.doc_family and spec.doc_family not in known_families for spec in patterns):
+        raise AssetConfigError("Reference pattern must name a manifest document family")
     return patterns
 
 
@@ -271,32 +302,13 @@ def _jurisdiction_scheme_patterns(
     profile: str,
     *,
     doc_family: str | None = None,
-) -> tuple[list[re.Pattern[str]], list[_PatternSpec]]:
+) -> tuple[list[_PatternSpec], list[_PatternSpec]]:
     code = resolve_profile(profile).code
-    family = (doc_family or "").strip().lower()
-    scoped_patterns: list[re.Pattern[str]] = []
-    generic_patterns: list[_PatternSpec] = []
-
-    if code == "ru":
-        scoped_patterns = _compile_scoped_patterns_from_asset(code)
-    elif code == "us":
-        generic_patterns.extend(_asset_generic_patterns_for_profile(code))
-        generic_patterns.extend(
-            _asset_reference_patterns(
-                code,
-                doc_family=family,
-                include_global=not bool(family),
-            )
-        )
-    elif code == "eu":
-        generic_patterns.extend(_asset_generic_patterns_for_profile(code))
-        generic_patterns.extend(_asset_reference_patterns(code, doc_family=family))
-    elif code == "ae":
-        generic_patterns.extend(_asset_generic_patterns_for_profile(code))
-        generic_patterns.extend(_asset_reference_patterns(code, doc_family=family))
-    else:
-        generic_patterns.extend(_asset_generic_patterns_for_profile("generic"))
-        generic_patterns.extend(_asset_reference_patterns("generic", doc_family=family))
+    scoped_patterns = _compile_scoped_patterns_from_asset(code)
+    generic_patterns = _asset_generic_patterns_for_profile(code)
+    generic_patterns.extend(
+        _asset_reference_patterns(code, doc_family=doc_family, include_global=not bool(doc_family))
+    )
     return scoped_patterns, generic_patterns
 
 
@@ -307,10 +319,10 @@ def _resolve_match_doc_family(
     profile: str,
     explicit_doc_family: str | None,
     inherited_doc_family: str | ReferenceDocFamily | None,
+    pattern_doc_family: str | None = None,
 ) -> str | None:
-    if explicit_doc_family:
-        return explicit_doc_family
-
+    if pattern_doc_family:
+        return pattern_doc_family
     family = resolve_doc_family_near(
         profile,
         alias_hits,
@@ -320,19 +332,27 @@ def _resolve_match_doc_family(
     if family is not None:
         return family.id
 
+    if explicit_doc_family:
+        return explicit_doc_family
     if isinstance(inherited_doc_family, ReferenceDocFamily):
         return inherited_doc_family.id
     return inherited_doc_family
 
 
-def _extract_number(raw: str | None) -> str | None:
-    if not raw:
-        return None
-    normalized = normalize_article_number(raw)
-    if not normalized:
-        return None
-    match = re.search(r"\d+(?:\.\d+)?", normalized)
-    return match.group(0) if match else None
+def _field_numbers(raw: str | None, profile: str) -> list[str | None]:
+    if raw is None:
+        return [None]
+    syntax = resolve_profile(profile).numbering_markers.get("reference_syntax", {})
+    separators = syntax.get("list_separators", []) + syntax.get("list_conjunctions", [])
+    ranges = syntax.get("range_separators", [])
+    parts = re.split("|".join(re.escape(x) for x in separators), raw) if separators else [raw]
+    values: list[str | None] = []
+    for part in parts:
+        normalized = part.strip()
+        for separator in ranges:
+            normalized = re.sub(r"\s*" + re.escape(separator) + r"\s*", separator, normalized)
+        values.append(normalize_article_number(normalized))
+    return values
 
 
 def extract_references(
@@ -342,6 +362,12 @@ def extract_references(
     doc_family: str | None = None,
 ) -> list[ParsedReference]:
     resolved_profile = resolve_profile(profile)
+    if doc_family:
+        doc_family = doc_family.strip().lower()
+        if doc_family not in {f.id for f in resolved_profile.doc_families}:
+            raise ValueError(
+                f"Unknown document family {doc_family!r} for profile {resolved_profile.code!r}"
+            )
     reference_config = load_manifest().profiles[resolved_profile.code].reference
     require_doc_family = bool(
         reference_config is not None
@@ -378,9 +404,48 @@ def extract_references(
         seen.add(key)
         results.append(ref)
 
-    for pattern in scoped_patterns:
-        for match in pattern.finditer(text_norm):
-            article = normalize_article_number(match.groupdict().get("article"))
+    candidates = [
+        (spec, match) for spec in scoped_patterns for match in spec.pattern.finditer(text_norm)
+    ]
+    candidates.sort(key=lambda item: (item[1].start(), -len(item[1].group(0))))
+    admitted_spans: list[tuple[int, int]] = []
+    for spec, match in candidates:
+        if any(match.start() < end and match.end() > start for start, end in admitted_spans):
+            continue
+        admitted_spans.append((match.start(), match.end()))
+        match_family = _resolve_match_doc_family(
+            alias_hits=alias_hits,
+            match=match,
+            profile=resolved_profile.code,
+            explicit_doc_family=inherited_family_id,
+            inherited_doc_family=inherited_family,
+        )
+        if inherited_family_id and match_family != inherited_family_id:
+            continue
+        fields = match.groupdict()
+        for article, paragraph, part in product(
+            _field_numbers(fields.get("article"), resolved_profile.code),
+            _field_numbers(fields.get("paragraph"), resolved_profile.code),
+            _field_numbers(fields.get("part"), resolved_profile.code),
+        ):
+            if inherited_family_id and match_family != inherited_family_id:
+                continue
+            append_reference(
+                ParsedReference(
+                    raw=match.group(0),
+                    scheme=spec.scheme,
+                    article_number=article,
+                    paragraph_number=paragraph,
+                    part_number=part,
+                    doc_family=match_family,
+                )
+            )
+
+    for spec in generic_patterns:
+        for match in spec.pattern.finditer(text_norm):
+            if any(match.start() < end and match.end() > start for start, end in admitted_spans):
+                continue
+            article = normalize_numeric_scripts(match.group("article")).strip()
             if not article:
                 continue
             match_family = _resolve_match_doc_family(
@@ -389,30 +454,10 @@ def extract_references(
                 profile=resolved_profile.code,
                 explicit_doc_family=inherited_family_id,
                 inherited_doc_family=inherited_family,
+                pattern_doc_family=spec.doc_family,
             )
-            append_reference(
-                ParsedReference(
-                    raw=match.group(0),
-                    scheme="ru_article" if resolved_profile.code == "ru" else "section",
-                    article_number=str(article),
-                    paragraph_number=_extract_number(match.groupdict().get("paragraph")),
-                    part_number=_extract_number(match.groupdict().get("part")),
-                    doc_family=match_family,
-                )
-            )
-
-    for spec in generic_patterns:
-        for match in spec.pattern.finditer(text_norm):
-            article = normalize_article_number(match.group("article"))
-            if not article:
+            if inherited_family_id and match_family != inherited_family_id:
                 continue
-            match_family = _resolve_match_doc_family(
-                alias_hits=alias_hits,
-                match=match,
-                profile=resolved_profile.code,
-                explicit_doc_family=spec.doc_family or inherited_family_id,
-                inherited_doc_family=inherited_family,
-            )
             append_reference(
                 ParsedReference(
                     raw=match.group(0),

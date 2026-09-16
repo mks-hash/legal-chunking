@@ -1,14 +1,5 @@
-"""Typed PDF extraction models."""
+"""Compatibility name for extractor-neutral page text."""
 
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-
-@dataclass(slots=True, frozen=True)
-class PdfPageText:
-    page_number: int
-    text: str
-
+from .models import ExtractedPage as PdfPageText
 
 __all__ = ["PdfPageText"]

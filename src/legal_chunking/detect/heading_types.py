@@ -43,6 +43,7 @@ class HeadingMatch:
     label: str
     article_number: str | None = None
     paragraph_number: str | None = None
+    detector_kind: str = "explicit"
 
 
 __all__ = [

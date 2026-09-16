@@ -8,7 +8,16 @@
     "guidance": "guidance",
     "case_law": "case_law",
     "commentary": "guidance",
-    "other": "default"
+    "other": "default",
+    "constitutional_norm": "statute",
+    "constitutional_legislation": "statute",
+    "regulatory_instrument": "statute",
+    "procedure_rules": "statute",
+    "treaty": "statute",
+    "constitutional_court_decision": "case_law",
+    "administrative_decision": "case_law",
+    "standard": "guidance",
+    "expert_opinion": "guidance"
   },
   "fallback": {
     "max_chars": 1200,
@@ -16,7 +25,9 @@
   },
   "runtime": {
     "pdf": {
-      "drop_line_equals": ["EN"],
+      "drop_line_equals": [
+        "EN"
+      ],
       "drop_line_regexes": [
         "^[CL]\\s+\\d+/\\d+$",
         "^\\(\\d+\\)\\s+OJ\\s+[CL]\\s+\\d+"
@@ -25,7 +36,12 @@
     },
     "chunk": {
       "document_root_splitter": "eu_recitals",
-      "article_splitter": "eu_article_subdivisions"
+      "article_splitter": "numbered_subdivisions",
+      "article_subdivision_regex": "(?:(?<=^)|(?<=[.!?;:\\n]))\\s*(?P<label>(?:\\d+\\.|\\((?:[a-z]|\\d+)\\)))\\s+",
+      "preferred_primary_units": [
+        "article",
+        "section"
+      ]
     },
     "heading": {
       "block_signature_names": true

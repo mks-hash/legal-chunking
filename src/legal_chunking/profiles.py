@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
-from legal_chunking.errors import InvalidProfileError
+from legal_chunking.errors import AssetConfigError, InvalidProfileError
 from legal_chunking.manifest import ReferenceDocFamily, load_asset_json, load_manifest
 from legal_chunking.runtime_policy import RuntimePolicy, parse_runtime_policy
 
@@ -21,6 +20,7 @@ class ResolvedProfile:
     runtime: RuntimePolicy
     guidance_extractors: dict[str, Any]
     reference_patterns: dict[str, Any]
+    normalization_policy: dict[str, Any]
     doc_families: tuple[ReferenceDocFamily, ...]
 
 
@@ -46,55 +46,33 @@ def resolve_profile(profile: str) -> ResolvedProfile:
     normalized = (profile or "").strip().lower() or "generic"
     manifest = load_manifest()
 
-    direct = manifest.profiles.get(normalized)
-    if direct and direct.enabled and direct.assets is not None:
-        chunking_policy = deepcopy(load_asset_json(direct.assets.chunking_policy))
-        return ResolvedProfile(
-            code=direct.code,
-            language=direct.language,
-            heading_patterns=deepcopy(load_asset_json(direct.assets.heading_patterns)),
-            numbering_markers=deepcopy(load_asset_json(direct.assets.numbering_markers)),
-            chunking_policy=chunking_policy,
-            runtime=parse_runtime_policy(chunking_policy),
-            guidance_extractors=(
-                deepcopy(load_asset_json(direct.assets.guidance_extractors))
-                if direct.assets.guidance_extractors
-                else {}
-            ),
-            reference_patterns=(
-                deepcopy(load_asset_json(direct.assets.reference_patterns))
-                if direct.assets.reference_patterns
-                else {}
-            ),
-            doc_families=direct.reference.doc_families if direct.reference else (),
+    selected = manifest.profiles.get(normalized)
+    if selected is None:
+        selected = next(
+            (p for p in manifest.profiles.values() if p.enabled and normalized in p.aliases), None
         )
-
-    for candidate in manifest.profiles.values():
-        if not candidate.enabled or candidate.assets is None:
-            continue
-        if normalized in candidate.aliases:
-            chunking_policy = deepcopy(load_asset_json(candidate.assets.chunking_policy))
-            return ResolvedProfile(
-                code=candidate.code,
-                language=candidate.language,
-                heading_patterns=deepcopy(load_asset_json(candidate.assets.heading_patterns)),
-                numbering_markers=deepcopy(load_asset_json(candidate.assets.numbering_markers)),
-                chunking_policy=chunking_policy,
-                runtime=parse_runtime_policy(chunking_policy),
-                guidance_extractors=(
-                    deepcopy(load_asset_json(candidate.assets.guidance_extractors))
-                    if candidate.assets.guidance_extractors
-                    else {}
-                ),
-                reference_patterns=(
-                    deepcopy(load_asset_json(candidate.assets.reference_patterns))
-                    if candidate.assets.reference_patterns
-                    else {}
-                ),
-                doc_families=candidate.reference.doc_families if candidate.reference else (),
-            )
-
-    raise InvalidProfileError(f"Unknown or disabled profile: {profile}")
+    if selected is None or not selected.enabled or selected.assets is None:
+        raise InvalidProfileError(f"Unknown or disabled profile: {profile}")
+    assets = selected.assets
+    chunking_policy = load_asset_json(assets.chunking_policy)
+    return ResolvedProfile(
+        code=selected.code,
+        language=selected.language,
+        heading_patterns=load_asset_json(assets.heading_patterns),
+        numbering_markers=load_asset_json(assets.numbering_markers),
+        chunking_policy=chunking_policy,
+        runtime=parse_runtime_policy(chunking_policy),
+        guidance_extractors=load_asset_json(assets.guidance_extractors)
+        if assets.guidance_extractors
+        else {},
+        reference_patterns=load_asset_json(assets.reference_patterns)
+        if assets.reference_patterns
+        else {},
+        normalization_policy=load_asset_json(assets.normalization_policy)
+        if assets.normalization_policy
+        else {},
+        doc_families=selected.reference.doc_families if selected.reference else (),
+    )
 
 
 def select_chunk_policy(
@@ -105,7 +83,7 @@ def select_chunk_policy(
     """Resolve one allowed chunking policy from the profile asset."""
     defaults = chunking_policy.get("defaults", {})
     if not isinstance(defaults, dict):
-        raise ValueError("Chunking policy payload must contain an object in 'defaults'")
+        raise AssetConfigError("Chunking policy payload must contain an object in 'defaults'")
 
     normalized_kind = (doc_kind or "").strip().lower()
     if normalized_kind:
@@ -114,7 +92,7 @@ def select_chunk_policy(
         selected = defaults.get("code") or defaults.get("other")
     policy = str(selected or "default").strip().lower()
     if policy not in ALLOWED_CHUNK_POLICIES:
-        raise ValueError(f"Unsupported chunk policy '{policy}'")
+        raise AssetConfigError(f"Unsupported chunk policy '{policy}'")
     return policy
 
 
@@ -124,14 +102,16 @@ def select_chunk_fallback(chunking_policy: dict[str, Any]) -> ChunkFallbackConfi
     if not isinstance(payload, dict):
         raise ValueError("Chunking policy payload must contain an object in 'fallback'")
 
-    max_chars = int(payload.get("max_chars", 1200))
-    overlap_chars = int(payload.get("overlap_chars", 120))
+    max_chars = payload.get("max_chars", 1200)
+    overlap_chars = payload.get("overlap_chars", 120)
+    if any(isinstance(v, bool) or not isinstance(v, int) for v in (max_chars, overlap_chars)):
+        raise AssetConfigError("Chunk fallback budgets must be integers")
     if max_chars <= 0:
-        raise ValueError("Chunk fallback max_chars must be positive")
+        raise AssetConfigError("Chunk fallback max_chars must be positive")
     if overlap_chars < 0:
-        raise ValueError("Chunk fallback overlap_chars must be non-negative")
+        raise AssetConfigError("Chunk fallback overlap_chars must be non-negative")
     if overlap_chars >= max_chars:
-        raise ValueError("Chunk fallback overlap_chars must be smaller than max_chars")
+        raise AssetConfigError("Chunk fallback overlap_chars must be smaller than max_chars")
     return ChunkFallbackConfig(max_chars=max_chars, overlap_chars=overlap_chars)
 
 
@@ -185,6 +165,22 @@ def find_doc_family_alias_hits(
                 continue
             offset = normalized_text.find(alias)
             while offset != -1:
+                end = offset + len(alias)
+                left_joined = (
+                    alias[0].isalnum()
+                    and offset > 0
+                    and (
+                        normalized_text[offset - 1].isalnum() or normalized_text[offset - 1] == "_"
+                    )
+                )
+                right_joined = (
+                    alias[-1].isalnum()
+                    and end < len(normalized_text)
+                    and (normalized_text[end].isalnum() or normalized_text[end] == "_")
+                )
+                if left_joined or right_joined:
+                    offset = normalized_text.find(alias, offset + 1)
+                    continue
                 hits.append(
                     _DocFamilyAliasHit(
                         family=family,

@@ -34,6 +34,10 @@ resolve a version-sensitive question. Do not change architecture to follow a
 framework convention or bump package versions for ordinary edits.
 
 For packaging changes follow the release evidence procedure in
- docs/development.md: inspect wheel/sdist assets, install into a clean environment,
+docs/development.md: inspect wheel/sdist assets, install into a clean environment,
 exercise text/reference APIs without PDF and test optional PDF/CLI separately.
-Existing dist/ artifacts do not validate the current source tree.
+Existing dist/ artifacts do not validate the current source tree. Also exercise
+the installed layout worker when changing extraction: its subprocess must resolve
+the installed package outside the repository cwd, emit clean CLI JSON and leave
+the host's native/text path untouched. Traineddata remains externally supplied;
+local OCR integration tests explicitly skip when it is absent.

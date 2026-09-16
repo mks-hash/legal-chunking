@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+import re
+from dataclasses import replace
 
+from legal_chunking.errors import AssetConfigError
 from legal_chunking.hashing import _compute_chunk_identity_hash, compute_semantic_hash
 from legal_chunking.models import Chunk, LegalMetadata, LegalUnitType, Section
 from legal_chunking.normalize import normalize_chunk_text
 from legal_chunking.profiles import ChunkFallbackConfig, ResolvedProfile
-from legal_chunking.tracing import TraceCollector
+from legal_chunking.tracing import TraceCollector, TraceStage
 
 from .splitters import (
     ARTICLE_SPLITTERS,
@@ -34,7 +37,17 @@ def build_chunks(
     trace: TraceCollector | None = None,
 ) -> list[Chunk]:
     """Build deterministic chunks from parsed sections and one resolved policy."""
-    selected_sections = select_sections(sections, chunk_policy=chunk_policy)
+    runtime = resolved_profile.runtime.chunk
+    for name, registry in (
+        (runtime.document_root_splitter, DOCUMENT_ROOT_SPLITTERS),
+        (runtime.article_splitter, ARTICLE_SPLITTERS),
+        (runtime.oversized_section_splitter, OVERSIZED_SECTION_SPLITTERS),
+    ):
+        if name and name not in registry:
+            raise AssetConfigError(f"Unknown chunk splitter: {name}")
+    selected_sections = select_sections(
+        sections, chunk_policy=chunk_policy, preferred_primary_units=runtime.preferred_primary_units
+    )
     chunks: list[Chunk] = []
     for section in selected_sections:
         parts = split_section(
@@ -56,7 +69,20 @@ def build_chunks(
                 source_name=source_name,
                 profile=resolved_profile.code,
             )
-    return assign_chunk_adjacency(chunks)
+    chunks = assign_chunk_adjacency(chunks)
+    if trace is not None:
+        for chunk in chunks:
+            trace.emit(
+                TraceStage.CHUNK,
+                "chunk_created",
+                rule_id="chunk.boundary.materialized",
+                chunk_id=chunk.chunk_id,
+                section_id=chunk.section_id,
+                order=chunk.order,
+                method=chunk.chunk_method,
+                char_length=len(chunk.text),
+            )
+    return chunks
 
 
 def append_chunk(
@@ -112,9 +138,49 @@ def assign_chunk_adjacency(chunks: list[Chunk]) -> list[Chunk]:
     return chunks
 
 
-def select_sections(sections: list[Section], *, chunk_policy: str) -> list[Section]:
-    _ = chunk_policy
-    return [section for section in sections if (section.text or "").strip()]
+def select_sections(
+    sections: list[Section], *, chunk_policy: str, preferred_primary_units: tuple[str, ...] = ()
+) -> list[Section]:
+    nonempty = [s for s in sections if s.text.strip()]
+    if chunk_policy != "statute" or not preferred_primary_units:
+        return nonempty
+    supported = {"article", "section", "clause", "paragraph"}
+    if any(kind not in supported for kind in preferred_primary_units):
+        raise AssetConfigError("Unsupported preferred primary unit")
+    primary_kind = next(
+        (kind for kind in preferred_primary_units if any(s.kind == kind for s in nonempty)), None
+    )
+    if primary_kind is None:
+        return nonempty
+    by_id = {s.section_id: s for s in sections}
+    bodies: dict[str, list[str]] = {}
+    selected: list[Section] = []
+    for section in nonempty:
+        owner = section if section.kind == primary_kind else None
+        parent_id = section.parent_section_id
+        visited: set[str] = set()
+        while owner is None and parent_id is not None:
+            if parent_id in visited:
+                raise AssetConfigError("Cyclic section hierarchy")
+            visited.add(parent_id)
+            parent = by_id.get(parent_id)
+            if parent is None:
+                break
+            if parent.kind == primary_kind:
+                owner = parent
+                break
+            parent_id = parent.parent_section_id
+        if owner is None:
+            selected.append(section)
+        else:
+            if owner.section_id not in bodies:
+                bodies[owner.section_id] = []
+                selected.append(owner)
+            bodies[owner.section_id].append(section.text)
+    return [
+        replace(s, text="\n\n".join(bodies[s.section_id])) if s.section_id in bodies else s
+        for s in selected
+    ]
 
 
 def split_section(
@@ -140,7 +206,7 @@ def split_section(
                 return [("guidance_point", normalized, None, None, None)]
             return split_guidance_point(normalized, paragraphs, fallback)
         if section.kind == "document_root":
-            return split_paragraph_units(paragraphs, fallback, base_method="guidance_preamble")
+            return [("guidance_preamble", normalized, None, None, None)]
         return split_paragraph_units(paragraphs, fallback, base_method="guidance_block")
 
     if chunk_policy == "case_law":
@@ -148,16 +214,26 @@ def split_section(
 
     if chunk_policy == "statute":
         runtime = resolved_profile.runtime.chunk
+        pattern = None
+        if runtime.article_subdivision_regex:
+            try:
+                pattern = re.compile(runtime.article_subdivision_regex)
+            except re.error as exc:
+                raise AssetConfigError("Invalid article_subdivision_regex") from exc
         document_root_splitter = DOCUMENT_ROOT_SPLITTERS.get(runtime.document_root_splitter)
         if section.kind == "document_root" and document_root_splitter is not None:
-            return document_root_splitter(section.text, fallback)
+            root_chunks = document_root_splitter(section.text, fallback, pattern=pattern)
+            if root_chunks:
+                return root_chunks
         if is_definition_schedule(section):
             definition_chunks = split_definition_schedule(section, trace=trace)
             if definition_chunks:
                 return definition_chunks
         article_splitter = ARTICLE_SPLITTERS.get(runtime.article_splitter)
         if (section.section_type or "") == "article" and article_splitter is not None:
-            article_chunks = article_splitter(section, fallback, trace=trace)
+            if pattern is None:
+                raise AssetConfigError("Article splitter requires article_subdivision_regex")
+            article_chunks = article_splitter(section, fallback, pattern=pattern, trace=trace)
             if article_chunks:
                 return article_chunks
         section_splitter = OVERSIZED_SECTION_SPLITTERS.get(runtime.oversized_section_splitter)

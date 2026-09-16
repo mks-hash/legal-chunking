@@ -6,11 +6,9 @@ import re
 from dataclasses import dataclass
 
 from legal_chunking.numbering_markers import get_numbering_aliases
+from legal_chunking.profiles import resolve_profile
 
 _TOKEN_RE = re.compile(r"[A-Za-zА-Яа-яЁё§.]+", re.UNICODE)
-_RU_DOC_FAMILY_HINT_RE = re.compile(
-    r"(?i)\b(?:крф|гк|апк|гпк|кас|упк|ук|коап|нк|тк|ск)(?:\s+рф)?\b"
-)
 _CONTEXT_FAMILIES = (
     "article_like",
     "chapter_like",
@@ -35,7 +33,13 @@ class ReferenceContextResolver:
     """Resolve legal-reference context from profile vocabulary families."""
 
     def __init__(self, profile: str) -> None:
-        self._profile = profile
+        resolved = resolve_profile(profile)
+        aliases = [re.escape(a) for f in resolved.doc_families for a in f.aliases]
+        self._source_pattern = re.compile(
+            r"(?<!\w)(?:" + "|".join(aliases) + r")(?!\w)" if aliases else r"(?!)",
+            re.IGNORECASE,
+        )
+        self._profile = resolved.code
         self._aliases: dict[str, set[str]] = {
             family: {
                 alias.casefold()
@@ -50,7 +54,7 @@ class ReferenceContextResolver:
         for family in _CONTEXT_FAMILIES:
             if tokens & self._aliases[family]:
                 return ReferenceContext(family=family)
-        if self._profile == "ru" and _RU_DOC_FAMILY_HINT_RE.search(text or ""):
+        if self._source_pattern.search(text or ""):
             return ReferenceContext(family="article_like")
         return ReferenceContext(family="unknown")
 

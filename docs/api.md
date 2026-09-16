@@ -10,7 +10,7 @@ API and serialization are documented behavior, not a frozen v1 schema.
 - `chunk_text`, `chunk_pdf`, `assemble_sections`, `extract_references`;
 - `Document`, `Section`, `Chunk`, `ParsedReference`;
 - `LegalChunkingError`, `AssetConfigError`, `InvalidProfileError`,
-  `PdfDependencyError`.
+  `PdfDependencyError`, `ExtractionError`.
 
 ```python
 from dataclasses import asdict
@@ -29,7 +29,8 @@ references = extract_references("пункт 3 статьи 450 ГК РФ", profi
 
 `chunk_text(text, profile="generic", source_name="<memory>", doc_kind=None,
 trace=False)` returns Document. `chunk_pdf(path, profile="generic", doc_kind=None,
-trace=False)` returns the same model and uses the file basename as source_name.
+trace=False, *, backend="pymupdf", ocr="off", ocr_language="eng", ocr_dpi=300)` returns the same model and uses the file basename as
+source_name.
 
 `assemble_sections(text, *, profile="generic", chunk_policy="default",
 doc_kind=None, source_name="<memory>", trace=None)` returns sections. This lower
@@ -38,17 +39,37 @@ high-level API's normalization/policy selection. Its trace parameter is an inter
 collector, not the high-level boolean.
 
 `extract_references(text, *, profile="generic", doc_family=None)` returns ParsedReference objects.
-An explicit doc_family narrows family-scoped matching. Reference normalization is
-separate from document normalization. `raw` reflects
+An explicit doc_family narrows family-scoped matching and must name a family in
+the selected profile manifest; unrelated/unknown families raise ValueError. A known
+local source conflicting with that restriction is excluded, never relabelled. Reference analysis has
+additional citation-only repairs, separate from the canonical
+text view. Both paths share marker-scoped numeric-script mechanics. `raw` reflects
 the parser's normalized matching text, not guaranteed verbatim source bytes.
+Coordinated RU article/part/point lists inherit their explicit article container;
+three-level point numbers are preserved. Ranges remain range strings (for example
+`3–4`); they are not expanded into invented discrete references. Chapter references
+use `scheme="chapter"`; the historical `article_number` field holds their number.
+Likewise `paragraph_number` is the legacy slot for RU points, not a complete typed
+locator chain. Subpoint/ordinal-paragraph roles and occurrence offsets are not a
+full supported address model yet. Results deduplicate canonical components rather
+than preserving every occurrence.
+
+Parenthesized EU/US citation identifiers remain parenthesized; they are not RU dotted
+suffixes. RU merged-digit repair is restricted to an asset-approved map, not an
+arbitrary last-digit split. These OCR/reference repairs are not applied wholesale
+to document body text. Normalization does not verify numbering against current law.
+
 References identify citation components and optional document family; they do not
 resolve a citation to an authoritative document, edition or legal validity.
 Use `to_dict()` or `to_canonical_parts(jurisdiction=...)` for reference payloads.
 
 Profile codes or aliases resolve through the manifest. Unknown/disabled profiles
 raise InvalidProfileError. Unknown doc_kind values currently select the asset's
-`other` policy, then `code`, rather than raising a validation error. Missing PDF
-support raises PdfDependencyError; asset failures use AssetConfigError. Ordinary
+`other` policy, then `code`, rather than raising a validation error. Missing PDF/OCR
+packages or traineddata raise PdfDependencyError. Layout worker
+failures raise ExtractionError without exposing raw upstream diagnostic payloads.
+Unsupported backend/mode combinations raise ValueError; asset failures use
+AssetConfigError. Ordinary
 IO and some configuration errors may still be standard Python exceptions.
 
 ## Results and identity

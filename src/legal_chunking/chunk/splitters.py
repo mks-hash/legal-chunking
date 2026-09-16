@@ -3,25 +3,39 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from typing import Protocol
 
 from legal_chunking.detect.definitions import parse_definition_entries
 from legal_chunking.detect.rulebook import split_rulebook_rule_blocks
+from legal_chunking.errors import AssetConfigError
 from legal_chunking.models import LegalUnitType, Section
 from legal_chunking.profiles import ChunkFallbackConfig
 from legal_chunking.tracing import TraceCollector, TraceStage
 
 ChunkSplit = tuple[str, str, LegalUnitType | None, str | None, str | None]
-DocumentRootSplitter = Callable[[str, ChunkFallbackConfig], list[ChunkSplit]]
-ArticleSplitter = Callable[[Section, ChunkFallbackConfig, TraceCollector | None], list[ChunkSplit]]
-OversizedSectionSplitter = Callable[[Section, TraceCollector | None], list[ChunkSplit]]
 
-_US_RULE_SUBDIVISION_RE = re.compile(
-    r"(?:(?<=^)|(?<=[.!?;:\n]))\s*(?P<label>\((?:[a-z]|\d+|[A-Z])\))\s+"
-)
-_EU_ARTICLE_SUBDIVISION_RE = re.compile(
-    r"(?:(?<=^)|(?<=[.!?;:\n]))\s*(?P<label>(?:\d+\.|\((?:[a-z]|\d+)\)))\s+"
-)
+
+class DocumentRootSplitter(Protocol):
+    def __call__(
+        self, text: str, fallback: ChunkFallbackConfig, *, pattern: re.Pattern[str] | None = None
+    ) -> list[ChunkSplit]: ...
+
+
+class ArticleSplitter(Protocol):
+    def __call__(
+        self,
+        section: Section,
+        fallback: ChunkFallbackConfig,
+        *,
+        pattern: re.Pattern[str],
+        trace: TraceCollector | None = None,
+    ) -> list[ChunkSplit]: ...
+
+
+class OversizedSectionSplitter(Protocol):
+    def __call__(
+        self, section: Section, *, trace: TraceCollector | None = None
+    ) -> list[ChunkSplit]: ...
 
 
 def split_paragraphs(text: str) -> list[str]:
@@ -102,7 +116,9 @@ def split_by_chars(text: str, fallback: ChunkFallbackConfig) -> list[ChunkSplit]
     return chunks
 
 
-def split_ae_statute_preamble(text: str, fallback: ChunkFallbackConfig) -> list[ChunkSplit]:
+def split_ae_statute_preamble(
+    text: str, fallback: ChunkFallbackConfig, *, pattern: re.Pattern[str] | None = None
+) -> list[ChunkSplit]:
     paragraphs = split_paragraphs(text)
     cleaned_paragraphs = _drop_title_only_preamble(paragraphs)
     chunks: list[ChunkSplit] = []
@@ -147,16 +163,17 @@ def split_rulebook_section(
     ]
 
 
-def split_us_rule_section(
+def split_article_section(
     section: Section,
     fallback: ChunkFallbackConfig,
     *,
+    pattern: re.Pattern[str],
     trace: TraceCollector | None = None,
 ) -> list[ChunkSplit]:
     text = (section.text or "").strip()
     if len(text) <= fallback.max_chars:
         return []
-    subdivisions = _split_us_rule_subdivisions(text)
+    subdivisions = _split_subdivisions(text, pattern)
     if len(subdivisions) < 2:
         return []
 
@@ -167,34 +184,7 @@ def split_us_rule_section(
     if trace is not None:
         trace.emit(
             TraceStage.CHUNK,
-            "us_rule_subdivision_split",
-            section=section.title,
-            count=len(grouped),
-        )
-    return [("statute_unit", part, None, None, None) for part in grouped]
-
-
-def split_eu_article_section(
-    section: Section,
-    fallback: ChunkFallbackConfig,
-    *,
-    trace: TraceCollector | None = None,
-) -> list[ChunkSplit]:
-    text = (section.text or "").strip()
-    if len(text) <= fallback.max_chars:
-        return []
-    subdivisions = _split_eu_article_subdivisions(text)
-    if len(subdivisions) < 2:
-        return []
-
-    grouped = _group_text_units(subdivisions, max_chars=fallback.max_chars)
-    if len(grouped) < 2:
-        return []
-
-    if trace is not None:
-        trace.emit(
-            TraceStage.CHUNK,
-            "eu_article_subdivision_split",
+            "article_subdivision_split",
             section=section.title,
             count=len(grouped),
         )
@@ -233,11 +223,15 @@ def split_definition_schedule(
     ]
 
 
-def split_eu_recitals(text: str, fallback: ChunkFallbackConfig) -> list[ChunkSplit]:
+def split_eu_recitals(
+    text: str, fallback: ChunkFallbackConfig, *, pattern: re.Pattern[str] | None = None
+) -> list[ChunkSplit]:
+    if pattern is None:
+        raise AssetConfigError("Recital splitter requires a subdivision pattern")
     text = (text or "").strip()
     if len(text) <= fallback.max_chars:
         return []
-    subdivisions = _split_eu_article_subdivisions(text)
+    subdivisions = _split_subdivisions(text, pattern)
     if len(subdivisions) < 2:
         return []
 
@@ -254,8 +248,7 @@ DOCUMENT_ROOT_SPLITTERS: dict[str, DocumentRootSplitter] = {
 }
 
 ARTICLE_SPLITTERS: dict[str, ArticleSplitter] = {
-    "us_rule_subdivisions": split_us_rule_section,
-    "eu_article_subdivisions": split_eu_article_section,
+    "numbered_subdivisions": split_article_section,
 }
 
 OVERSIZED_SECTION_SPLITTERS: dict[str, OversizedSectionSplitter] = {
@@ -350,34 +343,11 @@ def _group_text_units(parts: list[str], *, max_chars: int) -> list[str]:
     return grouped
 
 
-def _split_us_rule_subdivisions(text: str) -> list[str]:
+def _split_subdivisions(text: str, pattern: re.Pattern[str]) -> list[str]:
     normalized = (text or "").strip()
     if not normalized:
         return []
-    matches = list(_US_RULE_SUBDIVISION_RE.finditer(normalized))
-    if not matches:
-        return []
-
-    parts: list[str] = []
-    first_start = matches[0].start()
-    preamble = normalized[:first_start].strip()
-    if preamble:
-        parts.append(preamble)
-
-    for index, match in enumerate(matches):
-        start = match.start()
-        end = matches[index + 1].start() if index + 1 < len(matches) else len(normalized)
-        part = normalized[start:end].strip()
-        if part:
-            parts.append(part)
-    return parts
-
-
-def _split_eu_article_subdivisions(text: str) -> list[str]:
-    normalized = (text or "").strip()
-    if not normalized:
-        return []
-    matches = list(_EU_ARTICLE_SUBDIVISION_RE.finditer(normalized))
+    matches = list(pattern.finditer(normalized))
     if not matches:
         return []
 

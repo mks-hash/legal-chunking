@@ -314,7 +314,7 @@ def test_semantic_hash_is_stable_for_whitespace_variants() -> None:
     assert first == second
 
 
-def test_chunk_text_prefers_lower_statute_units_when_available() -> None:
+def test_chunk_text_keeps_lower_statute_units_with_their_primary_article() -> None:
     text = "\n".join(
         [
             "Article 1. General provisions",
@@ -327,24 +327,24 @@ def test_chunk_text_prefers_lower_statute_units_when_available() -> None:
     document = chunk_text(text, profile="generic", doc_kind="primary_legislation")
 
     assert document.chunk_policy == "statute"
-    assert len(document.chunks) == 2
-    assert [chunk.section_title for chunk in document.chunks] == [
-        "Article 1. General provisions",
-        "Section 1.1.1. Detailed rule",
-    ]
+    assert len(document.chunks) == 1
+    assert document.chunks[0].section_title == "Article 1. General provisions"
+    assert "Body of article one." in document.chunks[0].text
+    assert "1.1.1 Detailed rule" in document.chunks[0].text
+    assert "Body of detailed rule." in document.chunks[0].text
+    assert document.chunks[0].metadata.article_number == "1"
+    assert len(document.sections) == 3
     assert all(chunk.chunk_method == "statute_unit" for chunk in document.chunks)
 
 
-def test_chunk_text_splits_guidance_root_into_multiple_chunks() -> None:
+def test_chunk_text_keeps_unclassified_guidance_as_one_semantic_block() -> None:
     text = "Intro paragraph.\n\nSecond paragraph.\n\nThird paragraph."
 
     document = chunk_text(text, profile="generic", doc_kind="court_guidance")
 
     assert document.chunk_policy == "guidance"
     assert [chunk.text for chunk in document.chunks] == [
-        "Intro paragraph.",
-        "Second paragraph.",
-        "Third paragraph.",
+        "Intro paragraph. Second paragraph. Third paragraph."
     ]
     assert all(chunk.chunk_method == "guidance_preamble" for chunk in document.chunks)
 
@@ -788,3 +788,158 @@ def test_cli_chunk_reads_text_file_path(tmp_path: Path, capsys) -> None:
     assert exit_code == 0
     assert payload["source_name"] == "rulebook.txt"
     assert payload["chunks"][0]["metadata"]["definition_term"] == "Client Money"
+
+
+def test_small_eu_preamble_is_not_lost_when_special_splitter_declines() -> None:
+    document = chunk_text("Opening recital.\nArticle 1. Scope\nOperative provision.", profile="eu")
+    assert document.chunks[0].text == "Opening recital."
+    assert "Operative provision." in document.chunks[1].text
+
+
+def test_guidance_offsets_use_the_document_text_plane() -> None:
+    text = "Обзор судебной практики.\n\n1. Первый вывод.\n7\nТекст. 2.\nВторой вывод."
+    document = chunk_text(text, profile="ru", doc_kind="court_guidance")
+    assert [s.title for s in document.sections] == ["Document", "Point 1", "Point 2"]
+    for section in document.sections:
+        assert document.text[section.start_offset : section.end_offset] == section.text
+
+
+def test_review_approval_directives_do_not_shadow_body_points() -> None:
+    text = (
+        "ПОСТАНОВЛЕНИЕ ПРЕЗИДИУМА\n1. Утвердить обзор.\n2. Определить порядок.\n"
+        "ОБЗОР СУДЕБНОЙ ПРАКТИКИ\n1. Первый вывод.\n2. Второй вывод.\n3. Третий вывод."
+    )
+    document = chunk_text(text, profile="ru", doc_kind="court_guidance")
+    assert [s.metadata.point_number for s in document.sections[1:]] == ["1", "2", "3"]
+    assert "1. Утвердить обзор." in document.chunks[0].text
+    assert document.chunks[1].text == "1. Первый вывод."
+
+
+def test_statute_body_numbering_does_not_pop_article_context() -> None:
+    document = chunk_text(
+        "Статья 1. Общие положения\n1. Основное правило\nТекст правила.\n"
+        "2. Второе правило\nСтатья 2. Заключение\nКонец.",
+        profile="ru",
+    )
+    assert [s.metadata.article_number for s in document.sections[1:]] == ["1", "2"]
+    assert len(document.chunks) == 2
+    assert "2. Второе правило" in document.chunks[0].text
+    assert "Статья 2" not in document.chunks[0].text
+
+
+def test_native_pdf_preserves_raised_numbering_for_the_text_engine(tmp_path: Path) -> None:
+    path = tmp_path / "raised.pdf"
+    with fitz.open() as pdf:
+        page = pdf.new_page()
+        page.insert_htmlbox(
+            fitz.Rect(50, 50, 550, 200),
+            "<p>Chapter 29<sup>1</sup>. Procedure</p>"
+            "<p>Article 229<sup>5</sup>. Decision</p><p>Formula: 100<sup>2</sup>.</p>",
+        )
+        pdf.save(path)
+    document = chunk_pdf(path, profile="ru")
+    assert "Chapter 29.1" in document.text
+    assert any(s.title == "Chapter 29.1. Procedure" for s in document.sections)
+    assert any(s.metadata.article_number == "229.5" for s in document.sections)
+    assert "100²" in document.text
+
+
+def test_generic_normalization_preserves_spaced_separators() -> None:
+    assert normalize_extracted_text("частью - Федеральный закон") == "частью - Федеральный закон"
+    assert normalize_extracted_text("x - y") == "x - y"
+
+
+def test_wrapped_case_identifier_preserves_its_hyphens() -> None:
+    text = _normalize_page_raw_text("Ссылка № 5-КГ24-\n11-К2.", profile="ru")
+    assert "5-КГ24-11-К2" in text
+
+
+def test_statutory_instrument_is_not_source_case_metadata() -> None:
+    metadata = extract_guidance_point_metadata(
+        "1. Разъяснение. Постановление Правительства РФ от 2 апреля 2024 г. № 123.",
+        point_number="1",
+        profile="ru",
+        doc_kind="court_guidance",
+    )
+    assert metadata.source_case_reference is None
+    metadata = extract_guidance_point_metadata(
+        "1. Вывод. Определение Верховного Суда РФ от 2 апреля 2024 г. № 5-КГ24-11-К2.",
+        point_number="1",
+        profile="ru",
+        doc_kind="court_guidance",
+    )
+    assert metadata.source_case_number == "5-КГ24-11-К2"
+
+
+def test_layout_backend_isolated_from_native_calls_and_cli_output(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "layout.pdf"
+    with fitz.open() as pdf:
+        page = pdf.new_page()
+        page.insert_text((72, 90), "Article 1. Scope", fontsize=20)
+        page.insert_text((72, 140), "This act applies to contracts.", fontsize=14)
+        pdf.save(path)
+    original = path.read_bytes()
+    native = chunk_pdf(path, trace=True)
+    layout = chunk_pdf(path, backend="pymupdf4llm", trace=True)
+    assert [s.title for s in layout.sections] == ["Document", "Article 1. Scope"]
+    assert layout.chunks[0].text == "Article 1. Scope This act applies to contracts."
+    assert chunk_pdf(path, trace=True) == native
+    assert path.read_bytes() == original
+    event = next(e for e in layout.trace.events if e.type == "extraction_backend_selected")
+    assert event.data["backend"] == "pymupdf4llm"
+    assert event.data["ocr"] == "off"
+    assert capsys.readouterr().out == ""
+    assert cli_main(["chunk", "--path", str(path), "--backend", "pymupdf4llm"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["chunks"][0]["text"] == layout.chunks[0].text
+
+
+def test_invalid_extraction_options_and_missing_ocr_data_fail_explicitly(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import pytest
+
+    from legal_chunking import PdfDependencyError
+
+    path = tmp_path / "options.pdf"
+    with fitz.open() as pdf:
+        pdf.new_page()
+        pdf.save(path)
+    for options in [
+        {"backend": "unknown"},
+        {"ocr": "auto"},
+        {"ocr_dpi": 0},
+        {"ocr_language": "../secret"},
+        {"ocr": "unknown"},
+    ]:
+        with pytest.raises(ValueError):
+            chunk_pdf(path, **options)
+    monkeypatch.setenv("TESSDATA_PREFIX", str(tmp_path / "missing"))
+    with pytest.raises(PdfDependencyError, match="traineddata"):
+        chunk_pdf(path, backend="pymupdf4llm", ocr="force")
+
+
+def test_each_chunk_has_a_boundary_trace_without_changing_output() -> None:
+    text = "Article 1. Scope\nFirst body.\nArticle 2. Scope\nSecond body."
+    traced = chunk_text(text, trace=True)
+    plain = chunk_text(text)
+    assert traced.chunks == plain.chunks
+    events = [e for e in traced.trace.events if e.type == "chunk_created"]
+    assert [e.data["chunk_id"] for e in events] == [c.chunk_id for c in traced.chunks]
+    assert [e.data["section_id"] for e in events] == [c.section_id for c in traced.chunks]
+
+
+def test_invalid_guidance_asset_is_not_silently_ignored(monkeypatch) -> None:
+    from dataclasses import replace
+
+    import pytest
+
+    from legal_chunking import AssetConfigError
+    from legal_chunking.detect import guidance_metadata
+    from legal_chunking.profiles import resolve_profile
+
+    broken = replace(resolve_profile("ru"), guidance_extractors={"candidate_patterns": "invalid"})
+    guidance_metadata._load_guidance_metadata_config.cache_clear()
+    monkeypatch.setattr(guidance_metadata, "resolve_profile", lambda profile: broken)
+    with pytest.raises(AssetConfigError):
+        extract_guidance_point_metadata("1. Вывод.", point_number="1", profile="ru")

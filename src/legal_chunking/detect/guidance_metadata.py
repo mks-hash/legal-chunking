@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
+from legal_chunking.errors import AssetConfigError
 from legal_chunking.profiles import resolve_profile
 
 
@@ -37,6 +38,9 @@ class _GuidanceMetadataConfig:
     case_number_pattern: re.Pattern[str] | None
     case_date_pattern: re.Pattern[str] | None
     court_patterns: tuple[tuple[re.Pattern[str], str], ...]
+    reject_reference_patterns: tuple[re.Pattern[str], ...]
+    case_number_patterns: tuple[re.Pattern[str], ...]
+    court_text_pattern: re.Pattern[str] | None
 
 
 @dataclass(slots=True, frozen=True)
@@ -111,6 +115,15 @@ def _load_guidance_metadata_config(
         case_number_pattern=case_number_pattern,
         case_date_pattern=case_date_pattern,
         court_patterns=court_patterns,
+        reject_reference_patterns=_compile_text_patterns(
+            payload.get("source_case_validation", {}).get("reject_reference_patterns", [])
+        ),
+        case_number_patterns=_compile_text_patterns(
+            payload.get("source_case_validation", {}).get("case_number_patterns", [])
+        ),
+        court_text_pattern=_compile_validation_pattern(
+            payload.get("source_case_validation", {}).get("court_text_pattern")
+        ),
     )
 
 
@@ -153,6 +166,17 @@ def _parse_source_case_metadata(
 ) -> SourceCaseMetadata | None:
     candidate = _select_source_case_candidate(metadata_view, config=config)
     if candidate is None:
+        return None
+    if any(p.search(candidate.reference) for p in config.reject_reference_patterns):
+        return None
+    number = _extract_source_case_field(candidate.reference, config.case_number_pattern)
+    has_case_number = number is not None and any(
+        p.search(number) for p in config.case_number_patterns
+    )
+    has_court_text = config.court_text_pattern is not None and (
+        config.court_text_pattern.search(candidate.reference) is not None
+    )
+    if config.case_number_patterns and not (has_case_number or has_court_text):
         return None
     return SourceCaseMetadata(
         source_pattern_id=candidate.pattern_id,
@@ -202,9 +226,24 @@ def _extract_source_case_court(
     return None
 
 
+def _compile_text_patterns(payload: object) -> tuple[re.Pattern[str], ...]:
+    if not isinstance(payload, list) or not all(isinstance(p, str) for p in payload):
+        raise AssetConfigError("Source-case validation patterns must be a list of strings")
+    try:
+        return tuple(re.compile(p) for p in payload)
+    except re.error as exc:
+        raise AssetConfigError("Invalid source-case validation regex") from exc
+
+
+def _compile_validation_pattern(payload: object) -> re.Pattern[str] | None:
+    return _compile_text_patterns([payload])[0] if payload is not None else None
+
+
 def _compile_regex_sequence(payload: Any) -> tuple[re.Pattern[str], ...]:
-    if not isinstance(payload, list):
+    if payload is None:
         return ()
+    if not isinstance(payload, list):
+        raise AssetConfigError("Guidance pattern/alias collection must be a list")
     patterns: list[re.Pattern[str]] = []
     for item in payload:
         compiled = _compile_payload_regex(item)
@@ -214,17 +253,19 @@ def _compile_regex_sequence(payload: Any) -> tuple[re.Pattern[str], ...]:
 
 
 def _compile_candidate_patterns(payload: Any) -> tuple[_CandidatePattern, ...]:
-    if not isinstance(payload, list):
+    if payload is None:
         return ()
+    if not isinstance(payload, list):
+        raise AssetConfigError("Guidance pattern/alias collection must be a list")
     patterns: list[_CandidatePattern] = []
     for item in payload:
         if not isinstance(item, dict):
-            continue
+            raise AssetConfigError("Guidance pattern/alias entry must be an object")
         pattern_id = str(item.get("id") or "").strip()
         select = str(item.get("select") or "first").strip().lower()
         compiled = _compile_payload_regex(item)
         if not pattern_id or compiled is None or select not in {"first", "last"}:
-            continue
+            raise AssetConfigError("Invalid guidance candidate pattern")
         patterns.append(
             _CandidatePattern(
                 pattern_id=pattern_id,
@@ -236,40 +277,51 @@ def _compile_candidate_patterns(payload: Any) -> tuple[_CandidatePattern, ...]:
 
 
 def _compile_field_pattern(payload: Any, key: str) -> re.Pattern[str] | None:
-    if not isinstance(payload, dict):
+    if payload is None:
         return None
+    if not isinstance(payload, dict):
+        raise AssetConfigError("Guidance field/pattern must be an object")
     return _compile_payload_regex(payload.get(key))
 
 
 def _compile_payload_regex(payload: Any) -> re.Pattern[str] | None:
-    if not isinstance(payload, dict):
+    if payload is None:
         return None
+    if not isinstance(payload, dict):
+        raise AssetConfigError("Guidance field/pattern must be an object")
     pattern_text = str(payload.get("regex") or "").strip()
     if not pattern_text:
-        return None
-    return re.compile(pattern_text, _parse_regex_flags(payload.get("flags")))
+        raise AssetConfigError("Guidance regex must not be empty")
+    try:
+        return re.compile(pattern_text, _parse_regex_flags(payload.get("flags")))
+    except re.error as exc:
+        raise AssetConfigError("Invalid guidance regex") from exc
 
 
 def _compile_court_patterns(payload: Any) -> tuple[tuple[re.Pattern[str], str], ...]:
-    if not isinstance(payload, list):
+    if payload is None:
         return ()
+    if not isinstance(payload, list):
+        raise AssetConfigError("Guidance pattern/alias collection must be a list")
 
     patterns: list[tuple[re.Pattern[str], str]] = []
     for item in payload:
         if not isinstance(item, dict):
-            continue
+            raise AssetConfigError("Guidance pattern/alias entry must be an object")
         label = str(item.get("label") or "").strip()
         aliases = _normalize_string_list(item.get("aliases"))
         if not label or not aliases:
-            continue
+            raise AssetConfigError("Court alias entry requires label and aliases")
         for alias in aliases:
             patterns.append((re.compile(re.escape(alias), re.IGNORECASE), label))
     return tuple(patterns)
 
 
 def _normalize_string_list(value: Any) -> tuple[str, ...]:
-    if not isinstance(value, list):
+    if value is None:
         return ()
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise AssetConfigError("Guidance aliases must be a list of strings")
     normalized: list[str] = []
     seen: set[str] = set()
     for item in value:

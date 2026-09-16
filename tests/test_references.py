@@ -312,3 +312,65 @@ def test_extract_references_parses_eu_recital() -> None:
     assert refs[0].scheme == "recital"
     assert refs[0].article_number == "12"
     assert refs[0].doc_family == "gdpr"
+
+
+def test_coordinated_ru_references_keep_their_article_container() -> None:
+    refs = extract_references("части 3, 4 статьи 65 АПК РФ", profile="ru")
+    assert [(r.scheme, r.article_number, r.part_number, r.doc_family) for r in refs] == [
+        ("ru_article", "65", "3", "apk_rf"),
+        ("ru_article", "65", "4", "apk_rf"),
+    ]
+    refs = extract_references("пункты 1, 2 части 3 статьи 10 ГК РФ", profile="ru")
+    assert [(r.article_number, r.part_number, r.paragraph_number) for r in refs] == [
+        ("10", "3", "1"),
+        ("10", "3", "2"),
+    ]
+    assert all(r.raw == "пункты 1, 2 части 3 статьи 10" for r in refs)
+    refs = extract_references("статьи 66, 72 ГК РФ", profile="ru")
+    assert [r.article_number for r in refs] == ["66", "72"]
+
+
+def test_extracted_reference_keeps_full_nested_number() -> None:
+    refs = extract_references("пункт 3.2.1 статьи 450 ГК РФ", profile="ru")
+    assert len(refs) == 1
+    assert refs[0].paragraph_number == "3.2.1"
+
+
+def test_chapter_references_are_not_articles_and_keep_list_order() -> None:
+    refs = extract_references("главы 17, 29¹ АПК РФ", profile="ru")
+    assert [(r.scheme, r.article_number) for r in refs] == [("chapter", "17"), ("chapter", "29.1")]
+
+
+def test_numeric_repair_preserves_unapproved_numbers_and_ordinary_scripts() -> None:
+    assert normalize_legal_text("глава 325 АПК РФ", profile="ru") == "глава 325 АПК РФ"
+    assert normalize_legal_text("статья 1234 ГК РФ", profile="ru") == "статья 1234 ГК РФ"
+    assert normalize_legal_text("статья 5; формула 100²", profile="ru") == "статья 5; формула 100²"
+    assert normalize_legal_text("Article 100(1) GDPR", profile="eu") == "Article 100(1) GDPR"
+    refs = extract_references("Article 100(1) GDPR", profile="eu")
+    assert refs[0].article_number == "100(1)"
+    assert refs[0].to_canonical_parts(jurisdiction="eu")["article_number"] == "100(1)"
+
+
+def test_superscript_range_normalization_is_idempotent() -> None:
+    assert normalize_article_number("171²-³") == "171.2-3"
+    assert normalize_article_number("61.¹¹") == "61.11"
+    text = normalize_legal_text("Статья 171²-³ УК РФ", profile="ru")
+    assert text == "Статья 171.2-3 УК РФ"
+    assert normalize_legal_text(text, profile="ru") == text
+
+
+def test_reference_ranges_remain_ranges_without_invented_expansion() -> None:
+    refs = extract_references("части 3–4 статьи 65 АПК РФ", profile="ru")
+    assert [(r.article_number, r.part_number) for r in refs] == [("65", "3–4")]
+    refs = extract_references("статьи 10–20, 443 ГК РФ", profile="ru")
+    assert [r.article_number for r in refs] == ["10–20", "443"]
+
+
+def test_explicit_document_family_cannot_override_jurisdiction() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="Unknown document family"):
+        extract_references("Article 5 GDPR", profile="eu", doc_family="gk_rf")
+    assert extract_references("статья 10 НК РФ", profile="ru", doc_family="gk_rf") == []
+    refs = extract_references("15 U.S.C. § 78j", profile="us", doc_family=" USC ")
+    assert refs[0].doc_family == "usc"

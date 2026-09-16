@@ -17,6 +17,7 @@ def classify_section_line(
     offset: int,
     profile: str,
     chunk_policy: str,
+    in_article: bool = False,
 ) -> SectionLineCandidate:
     stripped = (line or "").strip()
     if not stripped:
@@ -26,6 +27,13 @@ def classify_section_line(
             rule_id="section.line.blank",
         )
     heading = detect_heading(stripped, profile=profile, chunk_policy=chunk_policy)
+    if (
+        heading is not None
+        and in_article
+        and chunk_policy == "statute"
+        and (heading.detector_kind == "numeric_heading" and heading.kind in {"article", "section"})
+    ):
+        heading = None
     if heading is not None:
         return HeadingSectionLineCandidate(
             text=stripped,

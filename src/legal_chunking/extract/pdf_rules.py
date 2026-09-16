@@ -140,6 +140,10 @@ def append_line(buffer: list[str], line: str, *, profile: str) -> None:
         return
 
     previous = buffer[-1]
+    if re.search(r"\d-$", previous) and line[:1].isdigit():
+        buffer[-1] = previous + line
+        return
+
     if previous.endswith("-") and line[:1].islower():
         buffer[-1] = f"{previous[:-1]}{line}"
         return

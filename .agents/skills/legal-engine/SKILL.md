@@ -12,7 +12,11 @@ Locate the existing owner before editing:
 - Composition: src/legal_chunking/api.py.
 - Profile vocabulary/defaults: packaged assets via manifest.py/profiles.py.
 - Runtime policy: runtime_policy.py and assets/chunking_policy/.
+- PDF adapter boundary: extract/backends.py and extract/models.py; optional
+  layout/OCR executes through extract/pymupdf4llm* in an isolated process.
 - PDF-specific candidates, context and cleanup: extract/pdf*.
+- Shared numeric-script mechanics: legal_normalization.py and packaged
+  normalization_policy assets; guidance vocabulary: detect/guidance_policy.py.
 - Heading admissibility and section assembly: detect/heading* and detect/section*.
 - Specialized forms: detect/guidance*, definitions.py and rulebook.py.
 - Splitting and IDs: chunk/runtime.py, chunk/splitters.py and hashing.py.
@@ -27,10 +31,15 @@ final assembly. Extend an existing asset/policy or narrowly scoped detector; do
 not force generic normalization to delete a jurisdiction-specific legal form.
 Test both the intended match and plausible legal text that must remain intact.
 
-For chunk changes inspect section ownership, legal metadata and fallback method,
+For chunk changes inspect asset preferred_primary_units, descendant ownership,
+legal metadata and fallback method,
 including oversized guidance points that intentionally stay whole. For identity
 changes review source rename, order/path changes and repeated units separately
 from whitespace-stable content hashing. There is no structural_hash today.
+
+For extraction/OCR work read docs/extraction.md. Preserve typography evidence
+before legal numbering interpretation; do not duplicate marker vocabularies in an
+adapter. OCR mode and an actual processed-page event are different facts.
 
 Trace comes from the same runtime. Check event meaning and source-text exposure;
 do not claim complete instrumentation or change events solely to satisfy a snapshot.
@@ -42,4 +51,4 @@ source fidelity when a change affects noisy extraction or difficult boundaries.
 Do not move the large corpus into public tests.
 
 Update the owning docs when behavior changes. Future design belongs in
- docs/roadmap.md, with acceptance criteria rather than an unsupported release claim.
+docs/roadmap.md, with acceptance criteria rather than an unsupported release claim.
