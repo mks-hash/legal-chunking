@@ -1,0 +1,64 @@
+{
+  "name": "us_rule",
+  "profile": "us",
+  "doc_kind": "primary_legislation",
+  "text": "Part I. Procedure\n\nRule 4. Notice\n(a) Contents. The notice must identify the parties.\n(1) A copy must be retained.\n(b) Delivery. The clerk must record delivery.\n\nRule 5. Record\nThe clerk must preserve the record.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "",
+      "metadata": {}
+    },
+    {
+      "title": "Part I. Procedure",
+      "kind": "part",
+      "parent": 0,
+      "text": "Part I. Procedure",
+      "metadata": {}
+    },
+    {
+      "title": "Rule 4. Notice",
+      "kind": "article",
+      "parent": 1,
+      "text": "Rule 4. Notice\n(a) Contents. The notice must identify the parties.\n(1) A copy must be retained.\n(b) Delivery. The clerk must record delivery.",
+      "metadata": {
+        "article_number": "4"
+      }
+    },
+    {
+      "title": "Rule 5. Record",
+      "kind": "article",
+      "parent": 1,
+      "text": "Rule 5. Record\nThe clerk must preserve the record.",
+      "metadata": {
+        "article_number": "5"
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 1,
+      "text": "Part I. Procedure",
+      "method": "statute_unit",
+      "metadata": {}
+    },
+    {
+      "owner": 2,
+      "text": "Rule 4. Notice (a) Contents. The notice must identify the parties. (1) A copy must be retained. (b) Delivery. The clerk must record delivery.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "4"
+      }
+    },
+    {
+      "owner": 3,
+      "text": "Rule 5. Record The clerk must preserve the record.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "5"
+      }
+    }
+  ]
+}

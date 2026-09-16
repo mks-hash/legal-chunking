@@ -1,0 +1,56 @@
+{
+  "name": "ae_rulebook",
+  "profile": "ae",
+  "doc_kind": "primary_legislation",
+  "text": "Part I - Controls\n\nA. General principles\nFirms shall maintain effective controls.\n\nB. Records\nFirms shall record each review.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "",
+      "metadata": {}
+    },
+    {
+      "title": "Part I. Controls",
+      "kind": "part",
+      "parent": 0,
+      "text": "Part I - Controls",
+      "metadata": {}
+    },
+    {
+      "title": "Section A. General principles",
+      "kind": "section",
+      "parent": 1,
+      "text": "A. General principles\nFirms shall maintain effective controls.",
+      "metadata": {}
+    },
+    {
+      "title": "Section B. Records",
+      "kind": "section",
+      "parent": 1,
+      "text": "B. Records\nFirms shall record each review.",
+      "metadata": {}
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 1,
+      "text": "Part I - Controls",
+      "method": "statute_unit",
+      "metadata": {}
+    },
+    {
+      "owner": 2,
+      "text": "A. General principles Firms shall maintain effective controls.",
+      "method": "statute_unit",
+      "metadata": {}
+    },
+    {
+      "owner": 3,
+      "text": "B. Records Firms shall record each review.",
+      "method": "statute_unit",
+      "metadata": {}
+    }
+  ]
+}

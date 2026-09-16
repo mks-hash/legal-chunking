@@ -1,0 +1,64 @@
+{
+  "name": "ru_statute",
+  "profile": "ru",
+  "doc_kind": "primary_legislation",
+  "text": "Глава 29.1. Производство\n\nСтатья 229.5. Решение\n1. Суд рассматривает заявление.\n2. Копия направляется заявителю.\n\nСтатья 229.6. Срок\nСрок составляет десять дней.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "",
+      "metadata": {}
+    },
+    {
+      "title": "Chapter 29.1. Производство",
+      "kind": "chapter",
+      "parent": 0,
+      "text": "Глава 29.1. Производство",
+      "metadata": {}
+    },
+    {
+      "title": "Article 229.5. Решение",
+      "kind": "article",
+      "parent": 1,
+      "text": "Статья 229.5. Решение\n1. Суд рассматривает заявление.\n2. Копия направляется заявителю.",
+      "metadata": {
+        "article_number": "229.5"
+      }
+    },
+    {
+      "title": "Article 229.6. Срок",
+      "kind": "article",
+      "parent": 1,
+      "text": "Статья 229.6. Срок\nСрок составляет десять дней.",
+      "metadata": {
+        "article_number": "229.6"
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 1,
+      "text": "Глава 29.1. Производство",
+      "method": "statute_unit",
+      "metadata": {}
+    },
+    {
+      "owner": 2,
+      "text": "Статья 229.5. Решение 1. Суд рассматривает заявление. 2. Копия направляется заявителю.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "229.5"
+      }
+    },
+    {
+      "owner": 3,
+      "text": "Статья 229.6. Срок Срок составляет десять дней.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "229.6"
+      }
+    }
+  ]
+}

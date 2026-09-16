@@ -36,7 +36,7 @@ def assemble_guidance_sections(
     path_occurrences: dict[tuple[str, ...], int] = {}
     search_offset = 0
     order = 0
-    root = make_document_root(source_name=source_name, order=order, text_length=len(normalized))
+    root = make_document_root(source_name=source_name, order=order)
     sections.append(root)
     order += 1
 

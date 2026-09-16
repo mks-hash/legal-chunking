@@ -1,0 +1,65 @@
+{
+  "name": "ru_guidance",
+  "profile": "ru",
+  "doc_kind": "court_guidance",
+  "text": "ПОСТАНОВЛЕНИЕ ПРЕЗИДИУМА\n1. Утвердить обзор.\n2. Определить порядок.\nОБЗОР СУДЕБНОЙ ПРАКТИКИ\n\n1. Заявителю направляется копия решения.\nСуд проверяет сведения о вручении.\n\n2. Срок исчисляется со дня получения копии.\nПисьмо должно содержать дату вручения.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "ПОСТАНОВЛЕНИЕ ПРЕЗИДИУМА\n1. Утвердить обзор.\n2. Определить порядок.\nОБЗОР СУДЕБНОЙ ПРАКТИКИ",
+      "metadata": {}
+    },
+    {
+      "title": "Point 1",
+      "kind": "clause",
+      "parent": 0,
+      "text": "1. Заявителю направляется копия решения.\nСуд проверяет сведения о вручении.",
+      "metadata": {
+        "point_number": "1",
+        "legal_unit_type": "guidance_point",
+        "legal_unit_number": "1"
+      }
+    },
+    {
+      "title": "Point 2",
+      "kind": "clause",
+      "parent": 0,
+      "text": "2. Срок исчисляется со дня получения копии.\nПисьмо должно содержать дату вручения.",
+      "metadata": {
+        "point_number": "2",
+        "legal_unit_type": "guidance_point",
+        "legal_unit_number": "2"
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 0,
+      "text": "ПОСТАНОВЛЕНИЕ ПРЕЗИДИУМА 1. Утвердить обзор. 2. Определить порядок. ОБЗОР СУДЕБНОЙ ПРАКТИКИ",
+      "method": "guidance_preamble",
+      "metadata": {}
+    },
+    {
+      "owner": 1,
+      "text": "1. Заявителю направляется копия решения. Суд проверяет сведения о вручении.",
+      "method": "guidance_point",
+      "metadata": {
+        "point_number": "1",
+        "legal_unit_type": "guidance_point",
+        "legal_unit_number": "1"
+      }
+    },
+    {
+      "owner": 2,
+      "text": "2. Срок исчисляется со дня получения копии. Письмо должно содержать дату вручения.",
+      "method": "guidance_point",
+      "metadata": {
+        "point_number": "2",
+        "legal_unit_type": "guidance_point",
+        "legal_unit_number": "2"
+      }
+    }
+  ]
+}

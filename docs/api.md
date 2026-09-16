@@ -80,6 +80,19 @@ metadata, processed-text offsets and text. Chunk contains text, method, section
 association, legal metadata, semantic_hash and previous/next chunk IDs.
 The models are dataclasses; they are not frozen schema/versioned wire DTOs.
 
+For `chunk_text` and `chunk_pdf`, section offsets are zero-based Python string
+indices into `Document.text`: `[start_offset, end_offset)` selects that section's
+own text, including its original heading. They are not UTF-8 byte offsets or PDF
+coordinates, and do not include descendants. Inter-section separator whitespace
+need not belong to either section. An empty root has the empty range `[0, 0)`.
+Chunk text collapses whitespace and may group descendants or overlap in character
+fallback; section offsets cannot be used as exact chunk occurrence anchors.
+The lower-level `assemble_sections` expects normalized input; leading/trailing
+whitespace is stripped internally and offsets refer to that stripped stream.
+
+The empty-root range corrects an earlier pre-alpha defect where an empty root
+claimed the entire document span. Root text, hierarchy and IDs are unchanged.
+
 `semantic_hash` is SHA-256 of stripped text with whitespace collapsed to single
 spaces. It is content-based and does not include profile, source or hierarchy.
 The word semantic does not imply a model embedding or equivalence of legal meaning.
@@ -91,6 +104,17 @@ occurrence. Renaming a source, moving a section or inserting earlier chunks can
 change IDs while leaving content hashes unchanged. IDs are not globally unique
 legal-unit identifiers or persistent citation locators. There is no structural_hash
 field today.
+
+Unique sibling reordering or inserting an earlier different path preserves a
+section ID if its source, path and same-path occurrence are unchanged. It can
+change chunk IDs through global order. A body-only edit preserves the section ID
+but changes affected chunks' content hashes and IDs. Reparenting changes the path and
+section ID. Identical repeated paths receive distinct occurrence IDs even when
+content hashes are equal; inserting another occurrence can shift later identities.
+Whitespace differences that collapse to identical chunk text leave content hashes
+and chunk IDs unchanged when all their other identity inputs stay the same.
+These scenarios are enforced in `tests/test_quality_contracts.py`; they are not a
+promise of identity stability across engine versions.
 
 Determinism applies with the same input, arguments, packaged assets and runtime.
 It does not promise invariant output across extractor, asset or engine versions.

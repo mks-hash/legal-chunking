@@ -16,6 +16,14 @@ coverage includes APK and the 2026 review. This is not schema freeze or a stable
 release/readiness claim; full typed addresses, occurrence anchors and page provenance
 still need concrete contracts.
 
+## Quality-contract foundation
+
+Independently authored public fixtures now protect own-text boundaries, hierarchy,
+selected metadata and content preservation across all five enabled profiles.
+Offset and relational identity scenarios have regressions; empty roots have empty
+own-text spans. See [quality evidence](quality.md). This establishes a small
+reviewed baseline, not complete source-PDF fidelity or completion of stages 1/2.
+
 ## 1. Establish trustworthy regression and quality evidence
 
 Protect existing legal forms across all enabled profiles. Use the current local
