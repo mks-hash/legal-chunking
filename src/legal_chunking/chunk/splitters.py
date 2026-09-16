@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Protocol
 
-from legal_chunking.detect.definitions import parse_definition_entries
+from legal_chunking.detect.definitions import _parse_definition_spans
 from legal_chunking.detect.rulebook import split_rulebook_rule_blocks
 from legal_chunking.errors import AssetConfigError
 from legal_chunking.models import LegalUnitType, Section
@@ -198,29 +198,37 @@ def is_definition_schedule(section: Section) -> bool:
 
 def split_definition_schedule(
     section: Section,
+    fallback: ChunkFallbackConfig,
     *,
     trace: TraceCollector | None = None,
 ) -> list[ChunkSplit]:
-    entries = parse_definition_entries(section.text)
-    if not entries:
+    spans = _parse_definition_spans(section.text)
+    if not spans:
         return []
     if trace is not None:
         trace.emit(
             TraceStage.CHUNK,
             "definition_schedule_split",
             section=section.title,
-            count=len(entries),
+            count=len(spans),
         )
-    return [
-        (
-            "definition_entry",
-            f"{entry.term}: {entry.definition}".strip(),
-            LegalUnitType.DEFINITION_ENTRY,
-            entry.term,
-            entry.term,
+    chunks: list[ChunkSplit] = []
+    preamble = section.text[: spans[0].start].strip()
+    if preamble:
+        chunks.extend(
+            group_paragraphs(split_paragraphs(preamble), fallback, base_method="statute_unit")
         )
-        for entry in entries
-    ]
+    for span in spans:
+        chunks.append(
+            (
+                "definition_entry",
+                section.text[span.start : span.end],
+                LegalUnitType.DEFINITION_ENTRY,
+                span.entry.term,
+                span.entry.term,
+            )
+        )
+    return chunks
 
 
 def split_eu_recitals(

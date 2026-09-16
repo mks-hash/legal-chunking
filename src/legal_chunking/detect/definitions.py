@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass
 
 _TERM_HEADER_RE = re.compile(r"^\s*term\s+definition\s*$", re.IGNORECASE | re.MULTILINE)
-_TERM_HEADER_INLINE_RE = re.compile(r"\bterm\s+definition\b", re.IGNORECASE)
 _ENTRY_START_RE = re.compile(
     r'(?P<header>"[^"\n]{1,200}"(?:\s+or\s+"[^"\n]{1,200}")*)\s+'
     r"(?P<intro>"
@@ -31,25 +30,36 @@ class DefinitionEntry:
     definition: str
 
 
-def parse_definition_entries(text: str) -> list[DefinitionEntry]:
-    """Extract quoted term-definition pairs from a schedule-style block."""
-    normalized = (text or "").strip()
-    if not normalized:
-        return []
-    normalized = _TERM_HEADER_RE.sub("", normalized)
-    normalized = _TERM_HEADER_INLINE_RE.sub("", normalized)
-    entries: list[DefinitionEntry] = []
-    matches = list(_ENTRY_START_RE.finditer(normalized))
+@dataclass(slots=True, frozen=True)
+class _DefinitionSpan:
+    entry: DefinitionEntry
+    start: int
+    end: int
+
+
+def _parse_definition_spans(text: str) -> list[_DefinitionSpan]:
+    """Recognize metadata while retaining ranges in the original section text."""
+    source = text or ""
+    spans: list[_DefinitionSpan] = []
+    matches = list(_ENTRY_START_RE.finditer(source))
     for index, match in enumerate(matches):
         aliases = [alias.strip() for alias in _QUOTED_ALIAS_RE.findall(match.group("header") or "")]
         term = " / ".join(alias for alias in aliases if alias)
-        next_start = matches[index + 1].start() if index + 1 < len(matches) else len(normalized)
-        body = normalized[match.end("header") : next_start].strip()
+        next_start = matches[index + 1].start() if index + 1 < len(matches) else len(source)
+        segment = source[match.start() : next_start]
+        end = match.start() + len(segment.rstrip())
+        body = source[match.end("header") : end].strip()
+        # A standalone table heading is metadata noise, not permission to erase prose.
+        body = _TERM_HEADER_RE.sub("", body)
         body = _ENTRY_TERMINATOR_RE.sub(". ", body).strip()
-        if not term or not body:
-            continue
-        entries.append(DefinitionEntry(term=term, definition=body))
-    return entries
+        if term and body:
+            spans.append(_DefinitionSpan(DefinitionEntry(term, body), match.start(), end))
+    return spans
+
+
+def parse_definition_entries(text: str) -> list[DefinitionEntry]:
+    """Extract quoted term-definition pairs from a schedule-style block."""
+    return [span.entry for span in _parse_definition_spans(text)]
 
 
 __all__ = ["DefinitionEntry", "parse_definition_entries"]

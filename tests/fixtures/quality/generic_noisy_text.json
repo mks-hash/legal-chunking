@@ -1,0 +1,35 @@
+{
+  "name": "generic_noisy_text",
+  "profile": "generic",
+  "doc_kind": "primary_legislation",
+  "text": "Article 1. Notices\nA copy must be retained.\n\nThe expression x - y remains unchanged.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "",
+      "metadata": {}
+    },
+    {
+      "title": "Article 1. Notices",
+      "kind": "article",
+      "parent": 0,
+      "text": "Article 1. Notices\nA copy must be retained.\n\nThe expression x - y remains unchanged.",
+      "metadata": {
+        "article_number": "1"
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 1,
+      "text": "Article 1. Notices A copy must be retained. The expression x - y remains unchanged.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "1"
+      }
+    }
+  ],
+  "input_text": " \tArticle 1. Notices\r\n A copy must be retained. \r\n\r\n\r\nThe expression x - y remains unchanged.\u0000 \n"
+}

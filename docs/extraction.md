@@ -37,6 +37,22 @@ models nor installs system tools. The OCR callback uses PyMuPDF's Tesseract bind
 missing data is an actionable dependency error, not a fallback to another OCR engine.
 The default dev extra includes the layout library, but not traineddata.
 
+## Repeated margin cleanup
+
+Repeated line text is not globally removed from all page positions. Repetition
+can identify contiguous leading or trailing margin fragments; cleanup stops at
+an explicit legal heading, enumeration or completed sentence. Leading cleanup also
+protects numeric heading candidates. A repeated numeric footer candidate (for
+example a journal date) can be removed together with the trailing margin block. Matching text inside an article body
+remains operative content. This corrects a pre-alpha defect that removed repeated
+body sentences as if they were headers; affected document text, offsets and IDs
+can consequently change.
+
+This is a conservative text-context heuristic, not a bounding-box margin contract.
+Unpunctuated body text at a page start can still be ambiguous. Other profile noise,
+running-header and TOC rules remain separate and do not yet have complete deletion
+traces. Use original-source review when cleanup affects difficult documents.
+
 ## Adapter boundaries and reproducibility
 
 Both backends return internal extractor-neutral page text records to shared PDF

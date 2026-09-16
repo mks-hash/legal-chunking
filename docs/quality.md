@@ -8,7 +8,9 @@ jurisdiction coverage, correct OCR or faithfulness to every original document.
 [Quality fixtures](../tests/fixtures/quality/README.md) contain original synthetic
 texts and independently authored expectations for generic, RU, US, EU and AE.
 They exercise fitting statute units, chapter/part hierarchy, decimal numbering,
-rule subdivisions, lettered sections and review approval/body separation.
+rule subdivisions, lettered sections and review approval/body separation. Additional
+fixtures cover original definition wording and introduction, short recitals,
+case-law paragraphs and format-generic noisy-input normalization.
 `tests/test_quality_contracts.py` verifies exact own text, parents/paths, offsets,
 chunk boundaries and ownership, adjacency and selected metadata.
 
@@ -19,10 +21,12 @@ non-whitespace text and cannot consume the next article. Concatenating overlappi
 chunks is not a general source-preservation check.
 
 Fixtures are reviewed against their explicitly authored source, not certified
-against applicable law. They are intentionally small. Definition schedules,
-recitals, case-law forms, noisy extraction and references have existing focused
-checks, but do not yet have equally complete independently reviewed fixtures in
-this set. These are concrete expansion targets, not implied coverage.
+against applicable law. They are intentionally small. Long recitals have independently specified grouping
+checks, and runtime-generated native PDFs check repeated margin/body text and
+source immutability. Case-law coverage means paragraph policy, not comprehensive
+judgment hierarchy extraction. Tables, noisy OCR, cross-page units and reference
+occurrence anchors remain expansion targets; these examples imply no full layout
+or jurisdiction coverage.
 
 ## Three separate evidence levels
 

@@ -119,6 +119,23 @@ promise of identity stability across engine versions.
 Determinism applies with the same input, arguments, packaged assets and runtime.
 It does not promise invariant output across extractor, asset or engine versions.
 
+## Definition schedule text
+
+Recognized definition entries retain their original quoted term, aliases and
+operative wording in `Chunk.text`, with normal chunk whitespace collapse. The
+parsed display term (for example `Notice / Notification`) remains metadata, not a
+replacement for source text. Introduction, schedule heading and table heading
+before the first entry are separate `statute_unit` chunks (character fallback
+applies if needed). A schedule with no recognized entry follows ordinary grouping.
+Definitions remain whole even if oversized; this preserves the existing semantic
+unit behavior and is not a universal character limit.
+
+This corrects earlier pre-alpha output that discarded the schedule introduction
+and rewrote definitions as `term: definition`. Consumers must filter by method or
+metadata rather than assume the first schedule chunk is a definition. Definition
+text/content hashes and resulting chunk IDs change, and later global chunk orders
+can shift. Document text and section hierarchy are unaffected by this correction.
+
 ## CLI serialization
 
 `chunk` emits source/profile/language/policy plus full chunk records including text.

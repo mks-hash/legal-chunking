@@ -1,0 +1,50 @@
+{
+  "name": "ae_definitions",
+  "profile": "ae",
+  "doc_kind": "primary_legislation",
+  "text": "Schedule 1 - Definitions\nThese definitions apply only to this instrument.\nTerm Definition\n\n\"Notice\" or \"Notification\" means a written communication.\nThe phrase term definition is part of this explanation.\n\n\"Record\" has the meaning ascribed to the term \"Register\" in this instrument.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "",
+      "metadata": {}
+    },
+    {
+      "title": "Schedule 1. Definitions",
+      "kind": "other",
+      "parent": 0,
+      "text": "Schedule 1 - Definitions\nThese definitions apply only to this instrument.\nTerm Definition\n\n\"Notice\" or \"Notification\" means a written communication.\nThe phrase term definition is part of this explanation.\n\n\"Record\" has the meaning ascribed to the term \"Register\" in this instrument.",
+      "metadata": {}
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 1,
+      "text": "Schedule 1 - Definitions These definitions apply only to this instrument. Term Definition",
+      "method": "statute_unit",
+      "metadata": {}
+    },
+    {
+      "owner": 1,
+      "text": "\"Notice\" or \"Notification\" means a written communication. The phrase term definition is part of this explanation.",
+      "method": "definition_entry",
+      "metadata": {
+        "legal_unit_type": "definition_entry",
+        "legal_unit_number": "Notice / Notification",
+        "definition_term": "Notice / Notification"
+      }
+    },
+    {
+      "owner": 1,
+      "text": "\"Record\" has the meaning ascribed to the term \"Register\" in this instrument.",
+      "method": "definition_entry",
+      "metadata": {
+        "legal_unit_type": "definition_entry",
+        "legal_unit_number": "Record",
+        "definition_term": "Record"
+      }
+    }
+  ]
+}

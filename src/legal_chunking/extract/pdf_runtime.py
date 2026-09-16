@@ -29,6 +29,7 @@ from .pdf_rules import (
     merge_marker_lines,
     normalize_line_text,
     trim_leading_header_fragments,
+    trim_trailing_header_fragments,
     trim_us_running_rule_header,
 )
 from .pdf_state import PdfParserState, decide_pdf_line
@@ -58,14 +59,16 @@ def normalize_page_raw_text(
     lines = [
         line
         for line in lines
-        if line
-        and line not in (repeated_noise or set())
-        and not is_profile_specific_noise_line(line, resolved_profile=resolved_profile)
+        if line and not is_profile_specific_noise_line(line, resolved_profile=resolved_profile)
     ]
     lines = trim_leading_header_fragments(
         lines,
         repeated_noise=repeated_noise,
         repeated_fingerprints=repeated_fingerprints,
+        profile=resolved_profile.code,
+    )
+    lines = trim_trailing_header_fragments(
+        lines, repeated_noise=repeated_noise, profile=resolved_profile.code
     )
     if resolved_profile.runtime.pdf.trim_running_rule_headers:
         lines = trim_us_running_rule_header(lines)

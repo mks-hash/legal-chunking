@@ -523,24 +523,29 @@ def test_chunk_text_splits_definition_schedule_into_definition_entries() -> None
             '"Sponsored VASP" means a VASP operating under a sponsorship arrangement.',
         ]
     )
-
     document = chunk_text(text, profile="ae", doc_kind="primary_legislation")
-
     assert document.chunk_policy == "statute"
     assert [chunk.chunk_method for chunk in document.chunks] == [
+        "statute_unit",
         "definition_entry",
         "definition_entry",
     ]
     assert [chunk.metadata.legal_unit_type for chunk in document.chunks] == [
+        None,
         LegalUnitType.DEFINITION_ENTRY,
         LegalUnitType.DEFINITION_ENTRY,
     ]
     assert [chunk.metadata.definition_term for chunk in document.chunks] == [
+        None,
         "Client Money",
         "Sponsored VASP",
     ]
-    assert document.chunks[0].text.startswith("Client Money:")
-    assert document.chunks[1].text.startswith("Sponsored VASP:")
+    assert [chunk.text for chunk in document.chunks] == [
+        "Schedule 1 - Definitions Term Definition",
+        '"Client Money" means money held on behalf of a client.',
+        '"Sponsored VASP" means a VASP operating under a sponsorship arrangement.',
+    ]
+    assert " ".join(chunk.text for chunk in document.chunks) == " ".join(text.split())
 
 
 def test_parse_definition_entries_keeps_alias_terms_and_quoted_definition_targets() -> None:
@@ -787,7 +792,8 @@ def test_cli_chunk_reads_text_file_path(tmp_path: Path, capsys) -> None:
 
     assert exit_code == 0
     assert payload["source_name"] == "rulebook.txt"
-    assert payload["chunks"][0]["metadata"]["definition_term"] == "Client Money"
+    assert payload["chunks"][0]["text"] == "Schedule 1 - Definitions"
+    assert payload["chunks"][1]["metadata"]["definition_term"] == "Client Money"
 
 
 def test_small_eu_preamble_is_not_lost_when_special_splitter_declines() -> None:

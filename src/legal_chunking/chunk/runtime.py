@@ -226,7 +226,7 @@ def split_section(
             if root_chunks:
                 return root_chunks
         if is_definition_schedule(section):
-            definition_chunks = split_definition_schedule(section, trace=trace)
+            definition_chunks = split_definition_schedule(section, fallback, trace=trace)
             if definition_chunks:
                 return definition_chunks
         article_splitter = ARTICLE_SPLITTERS.get(runtime.article_splitter)

@@ -20,6 +20,9 @@ still need concrete contracts.
 
 Independently authored public fixtures now protect own-text boundaries, hierarchy,
 selected metadata and content preservation across all five enabled profiles.
+Definitions, short/long recitals, case-law paragraph policy and noisy text/native
+PDFs also have source expectations. Definition chunks preserve original wording
+and schedule introduction; repetition cleanup is scoped to leading margin context.
 Offset and relational identity scenarios have regressions; empty roots have empty
 own-text spans. See [quality evidence](quality.md). This establishes a small
 reviewed baseline, not complete source-PDF fidelity or completion of stages 1/2.

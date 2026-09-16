@@ -16,7 +16,7 @@ CASES = sorted(QUALITY_DIR.glob("*.json"))
 def test_reviewed_legal_structure_preserves_source(path: Path) -> None:
     expected = json.loads(path.read_text(encoding="utf-8"))
     document = chunk_text(
-        expected["text"],
+        expected.get("input_text", expected["text"]),
         profile=expected["profile"],
         doc_kind=expected["doc_kind"],
         source_name=path.name,
@@ -172,3 +172,152 @@ def test_character_fallback_covers_oversized_unit_without_crossing_next_article(
         assert "Article 2" not in chunk.text
     assert all(index in covered for index, char in enumerate(source) if not char.isspace())
     assert document.chunks[-1].text == "Article 2. Final Closing provision."
+
+
+def test_definition_metadata_does_not_delete_table_header_words_from_prose() -> None:
+    from legal_chunking.detect.definitions import parse_definition_entries
+
+    entries = parse_definition_entries(
+        '"Notice" means a written communication. The phrase term definition is operative text.'
+    )
+    assert entries[0].definition == (
+        "means a written communication. The phrase term definition is operative text."
+    )
+
+
+def test_definition_schedule_without_recognized_entries_preserves_all_text() -> None:
+    text = "Schedule 1 - Definitions\nA notice is a written communication."
+    document = chunk_text(text, profile="ae")
+    assert [c.text for c in document.chunks] == [" ".join(text.split())]
+    assert document.chunks[0].chunk_method == "statute_unit"
+
+
+def test_long_recitals_preserve_numbered_units_before_operative_articles() -> None:
+    first = "(1) " + " ".join(["Notices should identify their sender."] * 22)
+    second = "(2) " + " ".join(["Records should remain accessible."] * 24)
+    article = "Article 1. Notices\nA notice shall identify its sender."
+    document = chunk_text("Whereas:\n" + first + "\n" + second + "\n\n" + article, profile="eu")
+    assert [c.text for c in document.chunks] == [
+        "Whereas: " + first,
+        second,
+        " ".join(article.split()),
+    ]
+    assert [c.chunk_method for c in document.chunks] == ["statute_unit"] * 3
+    assert (
+        document.chunks[0].section_id
+        == document.chunks[1].section_id
+        == document.sections[0].section_id
+    )
+    assert document.chunks[2].metadata.article_number == "1"
+    assert " ".join(c.text for c in document.chunks) == " ".join(document.text.split())
+
+
+def test_noisy_native_pdf_preserves_repeated_operative_text(tmp_path: Path) -> None:
+    import pymupdf
+
+    from legal_chunking import chunk_pdf
+
+    path = tmp_path / "registry.pdf"
+    units = [
+        f"Article {number}. Notices\nA notice must identify its sender." for number in range(1, 4)
+    ]
+    with pymupdf.open() as pdf:
+        for number, unit in enumerate(units, 1):
+            page = pdf.new_page()
+            page.insert_text((72, 72), f"Example Registry Bulletin\n{unit}\n{number}")
+        pdf.save(path)
+    original = path.read_bytes()
+    document = chunk_pdf(path, trace=True)
+    assert document.text == "\n\n".join(units)
+    assert [s.text for s in document.sections] == ["", *units]
+    assert [c.text for c in document.chunks] == [" ".join(unit.split()) for unit in units]
+    for section in document.sections:
+        assert document.text[section.start_offset : section.end_offset] == section.text
+    assert path.read_bytes() == original
+    assert document.trace is not None
+    assert "Example Registry Bulletin" not in document.text
+    # Repetition alone must not authorize deleting the operative sentence.
+    assert document.text.count("A notice must identify its sender.") == 3
+
+
+def test_repeated_heading_and_sentence_at_page_start_are_not_margin_noise() -> None:
+    from legal_chunking.extract.pdf import _normalize_page_raw_text
+    from legal_chunking.extract.pdf_rules import (
+        find_repeated_leading_header_fingerprints,
+        find_repeated_page_noise,
+    )
+
+    lines = ["Article 1. Notices", "A notice must identify its sender."]
+    noise = find_repeated_page_noise([lines] * 3)
+    fingerprints = find_repeated_leading_header_fingerprints([lines] * 3)
+    assert _normalize_page_raw_text(
+        "\n".join(lines),
+        repeated_noise=noise,
+        repeated_fingerprints=fingerprints,
+        profile="generic",
+    ) == "\n".join(lines)
+
+
+def test_repeated_header_text_inside_article_is_preserved() -> None:
+    from legal_chunking.extract.pdf import _normalize_page_raw_text
+
+    text = (
+        "Example Registry Bulletin\nArticle 1. Notices\n"
+        "Example Registry Bulletin\nA notice must identify its sender."
+    )
+    normalized = _normalize_page_raw_text(
+        text, profile="generic", repeated_noise={"Example Registry Bulletin"}
+    )
+    assert (
+        normalized
+        == "Article 1. Notices\nExample Registry Bulletin A notice must identify its sender."
+    )
+
+
+def test_repeated_footer_date_is_not_a_legal_heading() -> None:
+    from legal_chunking.extract.pdf import _normalize_page_raw_text
+
+    text = (
+        "Article 1. Notices\nA notice must identify its sender.\n4.5.2016\nExample Registry Journal"
+    )
+    assert (
+        _normalize_page_raw_text(
+            text, profile="generic", repeated_noise={"4.5.2016", "Example Registry Journal"}
+        )
+        == "Article 1. Notices\nA notice must identify its sender."
+    )
+
+
+def test_repeated_court_label_inside_body_survives_cleanup() -> None:
+    from legal_chunking.extract.pdf import _normalize_page_raw_text
+
+    label = "Определение Судебной коллегии по гражданским делам Верховного Суда РФ"
+    text = "1. Вывод суда.\n" + label + "\nот 28 ноября 2023 г. № 44-КГ23-24-К7."
+    result = _normalize_page_raw_text(text, profile="ru", repeated_noise={label})
+    assert label in result
+    assert "44-КГ23-24-К7" in result
+
+
+def test_restored_primary_court_label_prevents_selecting_analogous_case_instead() -> None:
+    label = "Определение Судебной коллегии по гражданским делам Верховного Суда РФ"
+    primary = label + " от 23 января 2024 г. № 2-КГ23-8-К3"
+    text = (
+        "Обзор судебной практики\n1. Заявителю направляется копия решения.\n"
+        + primary
+        + "\nАналогичная позиция изложена также в определениях "
+        "Судебной коллегии по гражданским делам Верховного Суда РФ "
+        "от 2 апреля 2024 г. № 5-КГ24-11-К2."
+    )
+    document = chunk_text(text, profile="ru", doc_kind="court_guidance")
+    metadata = document.sections[1].metadata
+    assert metadata.source_case_reference == primary
+    assert metadata.source_case_number == "2-КГ23-8-К3"
+    assert metadata.source_case_date == "23 января 2024 г."
+    assert metadata.source_case_court == "Верховный Суд РФ"
+
+
+def test_repeated_numeric_heading_alone_at_page_end_is_not_a_footer_block() -> None:
+    from legal_chunking.extract.pdf import _normalize_page_raw_text
+
+    text = "Article 1. Notices\n4.5 Scope"
+    assert _normalize_page_raw_text(text, profile="generic", repeated_noise={"4.5 Scope"}) == text
