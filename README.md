@@ -1,293 +1,95 @@
 # legal-chunking
 
-`legal-chunking` is an open-source Python library for deterministic, structure-aware parsing, chunking, and reference extraction for legal documents.
+Legal Chunking is an extraction-agnostic, deterministic and explainable
+document-structuring engine for legal texts.
 
-The project is intentionally narrow:
+It normalizes text, recovers legal structure, builds chunks from legal boundaries,
+and extracts structured citations. It is a Python library with an optional PDF
+adapter, not a retrieval or LLM framework.
 
-- accept legal text from plain text and PDF sources
-- normalize text deterministically
-- recover legal structure such as headings, parts, sections, articles, clauses, and points
-- build chunks from logical legal boundaries instead of fixed-size windows
-- return stable metadata and reference parsing results for downstream systems
+## Status and scope
 
-It is not a retrieval framework, ranking engine, or product orchestration layer.
+Pre-alpha: package version `0.1.0`, Python 3.14+. The text core has no runtime
+dependencies. PDF support uses the optional PyMuPDF extra.
 
-## Why Not Generic Text Splitters?
+Enabled profiles: `generic`, `ru`, `us`, `eu`, `ae`. They support tested document
+forms, not every legal text in a jurisdiction. Current capabilities include heading
+hierarchy, guidance points, rule blocks, definition entries, policy-aware splitting,
+content hashes and optional runtime trace. Trace coverage is partial; OCR, faithful
+table reconstruction and end-to-end PDF page provenance are not guaranteed.
 
-Most text splitters operate on fixed-size windows or shallow heuristics.
+Retrieval, ranking, embeddings, vector stores, LLM reasoning, web services and
+product workflows are outside the scope of this engine.
 
-`legal-chunking` is designed to preserve legal structure instead of flattening it:
+## Install and use
 
-- reconstructs legal structure before chunking instead of treating text as flat token sequences
-- uses semantic legal boundaries such as articles, sections, rules, and guidance points as the primary split strategy
-- preserves deterministic and reproducible outputs for identical inputs
-- exposes explainable trace data for the chunking pipeline
-
-The goal is not to be smaller than generic splitters.
-The goal is to be narrower in scope, but stronger inside that scope.
-
-## Public API
-
-The public package surface is intentionally small:
+```bash
+pip install legal-chunking
+# Optional PDF support:
+pip install 'legal-chunking[pdf]'
+```
 
 ```python
-from legal_chunking import chunk_pdf, chunk_text, extract_references
+from legal_chunking import chunk_text, chunk_pdf, extract_references
 
-doc = chunk_text(
-    "Article 1. General provisions\nThe borrower shall...",
+# Text may come from any upstream extraction system.
+document = chunk_text(
+    "Article 1. General provisions\nThe borrower shall comply.",
     profile="generic",
+    source_name="contract.txt",
+    trace=True,
 )
 
-pdf_doc = chunk_pdf(
-    "./rulebook.pdf",
-    profile="ae",
-    doc_kind="primary_legislation",
+pdf_document = chunk_pdf(
+    "rulebook.pdf", profile="ae", doc_kind="primary_legislation"
 )
-
-refs = extract_references(
-    "пункт 3 статьи 450 ГК РФ",
-    profile="ru",
-)
+references = extract_references("пункт 3 статьи 450 ГК РФ", profile="ru")
 ```
 
-Core public types:
+Chunking returns a `Document` with normalized text, resolved profile/language,
+selected policy, sections, chunks and optional trace. `assemble_sections` is also
+exported for lower-level normalized-text assembly.
 
-- `ParsedReference`
-- `Document`
-- `Section`
-- `Chunk`
-
-Chunking APIs return a `Document` that contains:
-
-- normalized `text`
-- resolved `profile` and `language`
-- selected `chunk_policy`
-- `sections`
-- `chunks`
-- optional `trace`
-
-## Examples: Structural Precision
-
-`legal-chunking` preserves legal hierarchy across jurisdictions. Below are representative outputs for different document families:
-
-### US Federal Rules (FRCP)
-Reconstructs deep rule subdivisions (`Rule 4(a)(1)(A)`) even when they span multiple lines.
-
-```json
-{
-  "profile": "us",
-  "chunks": [
-    {
-      "chunk_id": "chunk-394c5793d613",
-      "text": "Rule 4. Summons (a) CONTENTS; AMENDMENTS. (1) Contents...",
-      "section_title": "Rule 4. Summons",
-      "section_type": "article",
-      "metadata": { "article_number": "4" }
-    }
-  ]
-}
-```
-
-### EU GDPR (Recitals)
-Automatically groups preamble recitals into semantic blocks instead of treating them as raw introductory text.
-
-```json
-{
-  "profile": "eu",
-  "chunks": [
-    {
-      "chunk_id": "chunk-d3289eb5515e",
-      "text": "(1) The protection of natural persons... (2) The principles of...",
-      "section_title": "Document",
-      "section_type": "document_root"
-    }
-  ]
-}
-```
-
-### RU Consumer Review (Case References)
-Extracts detailed court references directly from the legal unit headers.
-
-```json
-{
-  "profile": "ru",
-  "chunks": [
-    {
-      "chunk_id": "chunk-48ca2b1d622c",
-      "text": "17. Банк как выгодоприобретатель...",
-      "section_title": "Point 17",
-      "section_type": "review_point",
-      "metadata": {
-        "legal_unit_type": "guidance_point",
-        "source_case_number": "18-КГ23-155-К4",
-        "source_case_court": "Верховный Суд РФ"
-      }
-    }
-  ]
-}
-```
-
-Full representative samples are available in the [examples/output_samples/](./examples/output_samples/) directory.
+Determinism applies for identical inputs, arguments, assets and runtime versions.
+Content hashes normalize whitespace; chunk IDs also depend on source identity,
+structure, method and order. They are not permanent legal citation identifiers.
+See [API contracts](docs/api.md) for signatures, metadata and serialization.
 
 ## CLI
 
-The package includes a small inspectable CLI:
-
 ```bash
-legal-chunking chunk --text "Article 1. General provisions" --profile generic
-legal-chunking structure --path ./rulebook.txt --profile ae --doc-kind primary_legislation
-legal-chunking explain --path ./rulebook.pdf --profile ae --doc-kind primary_legislation
-legal-chunking review --path ./documents/gdpr.pdf --profile eu --limit 12
-legal-chunking review --path ./rulebook.pdf --profile ae --output ./snapshots/rulebook-review.txt
+legal-chunking chunk --text 'Article 1. General provisions' --profile generic
+legal-chunking structure --path rulebook.txt --profile ae --doc-kind primary_legislation
+legal-chunking explain --path rulebook.pdf --profile ae --doc-kind primary_legislation
+legal-chunking review --path gdpr.pdf --profile eu --limit 12 --max-chars 220
+legal-chunking review --path rulebook.pdf --profile ae --output snapshots/review.txt
 ```
 
-Command contracts:
+`chunk` emits JSON chunk records including text; `structure` emits sections;
+`explain` emits runtime trace; `review` emits human-readable previews.
+All commands accept `--output`. The JSON format is not a frozen/versioned schema.
 
-- `chunk` emits chunk metadata only
-- `structure` emits detected sections only
-- `explain` emits staged trace events only
-- `review` emits a human-readable section and chunk preview for manual inspection
+[Representative output samples](examples/output_samples/) illustrate selected
+forms; they are not canonical golden fixtures or evidence of full corpus quality.
 
-For real-document review, `review` is the fastest way to inspect chunk quality by eye:
+## Documentation and development
 
-```bash
-legal-chunking review --path ./documents/us_federal_rules.pdf --profile us --limit 15 --max-chars 220
-legal-chunking review --path ./documents/vara_rules.pdf --profile ae --doc-kind primary_legislation --limit 20
-legal-chunking review --path ./documents/ru_plenum.pdf --profile ru --doc-kind court_guidance --limit 25
-```
-
-That output lets you inspect:
-
-- detected section titles and order
-- chunking method per chunk
-- short text previews for each chunk
-- total section and chunk counts per document
-
-All CLI commands also support `--output` for snapshot export.
-Use that for reproducible manual review and diffable artifacts:
-
-```bash
-mkdir -p ./snapshots
-
-legal-chunking review \
-  --path ./documents/gdpr.pdf \
-  --profile eu \
-  --limit 20 \
-  --max-chars 220 \
-  --output ./snapshots/gdpr-eu-review.txt
-
-legal-chunking review \
-  --path ./documents/us_federal_rules.pdf \
-  --profile us \
-  --limit 20 \
-  --max-chars 220 \
-  --output ./snapshots/frcp-us-review.txt
-
-legal-chunking review \
-  --path ./documents/vara_rules.pdf \
-  --profile ae \
-  --doc-kind primary_legislation \
-  --limit 20 \
-  --max-chars 220 \
-  --output ./snapshots/vara-ae-review.txt
-
-legal-chunking review \
-  --path ./documents/ru_consumer_review.pdf \
-  --profile ru \
-  --doc-kind court_guidance \
-  --limit 25 \
-  --max-chars 220 \
-  --output ./snapshots/consumer-review-ru-review.txt
-
-legal-chunking review \
-  --path ./documents/ru_plenum.pdf \
-  --profile ru \
-  --doc-kind court_guidance \
-  --limit 25 \
-  --max-chars 220 \
-  --output ./snapshots/plenum-ru-review.txt
-```
-
-## Status
-
-This repository is in pre-alpha.
-The current implementation already includes:
-
-- packaged manifest-driven profiles
-- deterministic normalization and semantic hashing
-- section assembly with typed legal units
-- policy-aware chunking
-- PDF extraction support
-- structured legal reference extraction
-- CLI commands for chunk, structure, and explain
-
-Design principles:
-
-- structure-aware chunking over naive sliding windows
-- asset-driven profiles over hardcoded jurisdiction logic
-- deterministic outputs for identical inputs
-- inspectable runtime behavior
-- dependency-light core with explicit optional extras
-
-## Scope
-
-In scope for v1:
-
-- text and PDF inputs
-- profile resolution by code or alias
-- policy-aware chunking
-- structured legal reference extraction
-- traceable boundary decisions
-- structured JSON output through the CLI
-
-Out of scope for v1:
-
-- embeddings
-- vector stores
-- retrieval orchestration
-- reranking
-- LLM reasoning
-- web services
-- UI
-- workflow orchestration
-
-## Profiles
-
-Profiles currently enabled through the packaged manifest:
-
-- `generic`
-- `ru`
-- `us`
-- `eu`
-- `ae`
-
-`generic` and `ru` are the primary working profiles.
-`us`, `eu`, and `ae` are narrower but real runtime profiles, not placeholder names.
-
-## Repository Layout
-
-```text
-src/legal_chunking/
-tests/
-examples/
-```
-
-## Development
+Start at [docs/README.md](docs/README.md) for architecture, API, development and
+strategic roadmap. Repository agent instructions live in [AGENTS.md](AGENTS.md).
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .[dev]
-pytest -q
-ruff check .
-ruff format --check .
+python -m pip install -e '.[dev]'
+python -m pytest -q
+python -m ruff check src tests
+python -m ruff format --check src tests
 ```
 
-PDF extraction uses an optional dependency:
-
-```bash
-pip install legal-chunking[pdf]
-```
+Small public fixtures live in `tests/fixtures/`. Large local PDFs and review outputs
+live in the Git-ignored `.develop/testings/`; integration tests skip missing PDFs.
+They are not part of the public repository. See [validation](docs/development.md)
+for test ownership and release evidence.
 
 ## License
 

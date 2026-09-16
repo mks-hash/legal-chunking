@@ -8,7 +8,7 @@ import pytest
 
 from legal_chunking import chunk_pdf, extract_references
 
-TESTINGS_DIR = Path(__file__).resolve().parents[2] / "testings"
+TESTINGS_DIR = Path(__file__).resolve().parents[1] / ".develop" / "testings"
 
 
 def _require_testing_pdf(name: str) -> Path:

@@ -247,6 +247,7 @@ def split_eu_recitals(text: str, fallback: ChunkFallbackConfig) -> list[ChunkSpl
 
     return [("statute_unit", part, None, None, None) for part in grouped]
 
+
 DOCUMENT_ROOT_SPLITTERS: dict[str, DocumentRootSplitter] = {
     "title_preamble": split_ae_statute_preamble,
     "eu_recitals": split_eu_recitals,
