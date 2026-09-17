@@ -130,12 +130,16 @@ def _detect_numeric_heading(
     label = f"Section {num}" + (f". {tail}" if tail else "")
     depth = num.count(".")
     if depth == 0:
-        return HeadingMatch(kind="section", label=label)
+        return HeadingMatch(kind="section", label=label, detector_kind="numeric_heading")
     if chunk_policy == "guidance":
         return None
     if depth == 1:
-        return HeadingMatch(kind="article", label=label, article_number=num)
-    return HeadingMatch(kind="clause", label=label, paragraph_number=num)
+        return HeadingMatch(
+            kind="article", label=label, article_number=num, detector_kind="numeric_heading"
+        )
+    return HeadingMatch(
+        kind="clause", label=label, paragraph_number=num, detector_kind="numeric_heading"
+    )
 
 
 def _detect_symbolic_section_heading(

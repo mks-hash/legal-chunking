@@ -81,7 +81,7 @@ def assemble_sections(
         text_parts_by_id[section.section_id] = []
         return section
 
-    root = make_document_root(source_name=source_name, order=order, text_length=len(normalized))
+    root = make_document_root(source_name=source_name, order=order)
     order += 1
     sections.append(root)
     stack.append(root)
@@ -96,6 +96,7 @@ def assemble_sections(
             offset=line_offset,
             profile=profile,
             chunk_policy=chunk_policy,
+            in_article=any(s.kind == "article" for s in stack),
         )
         if trace is not None:
             trace.emit(

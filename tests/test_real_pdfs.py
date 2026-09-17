@@ -8,7 +8,7 @@ import pytest
 
 from legal_chunking import chunk_pdf, extract_references
 
-TESTINGS_DIR = Path(__file__).resolve().parents[2] / "testings"
+TESTINGS_DIR = Path(__file__).resolve().parents[1] / ".develop" / "testings"
 
 
 def _require_testing_pdf(name: str) -> Path:
@@ -176,14 +176,18 @@ def test_real_pdf_ru_consumer_review_detects_guidance_points() -> None:
     assert document.chunks[0].chunk_method == "guidance_preamble"
     assert document.chunks[0].metadata.point_number is None
     assert point_numbers == [str(index) for index in range(1, 25)]
+    source_label = "Определение Судебной коллегии по гражданским делам Верховного Суда РФ"
     assert case_references == [
-        "от 28 ноября 2023 г. № 44-КГ23-24-К7",
-        "от 2 апреля 2024 г. № 5-КГ24-11-К2",
-        "от 25 июня 2024 г. № 49-КГ24-6-К6",
-        "от 5 марта 2024 г. № 5-КГ23-158-К2",
-        "от 23 января 2024 г. № 46-КГ23-15-К6",
-        "от 27 февраля 2024 г. № 5-КГ23-152-К2",
-        "от 3 октября 2023 г. № 16-КГ23-44-К4",
+        source_label + " " + citation
+        for citation in [
+            "от 28 ноября 2023 г. № 44-КГ23-24-К7",
+            "от 23 января 2024 г. № 2-КГ23-8-К3",
+            "от 25 июня 2024 г. № 49-КГ24-6-К6",
+            "от 5 марта 2024 г. № 5-КГ23-158-К2",
+            "от 23 января 2024 г. № 46-КГ23-15-К6",
+            "от 27 февраля 2024 г. № 5-КГ23-152-К2",
+            "от 3 октября 2023 г. № 16-КГ23-44-К4",
+        ]
     ]
 
 
@@ -236,3 +240,89 @@ def test_real_pdf_ru_plenum_detects_large_guidance_structure() -> None:
         ),
         "постановление Пленума Верховного Суда СССР от 15 ноября 1984 года № 22",
     } <= case_references
+
+
+def test_real_pdf_apk_preserves_numbered_article_bodies_and_raised_chapter() -> None:
+    path = _require_testing_pdf("АПК РФ актуальная редакция от 01.01.2026.pdf")
+    document = chunk_pdf(path, profile="ru", doc_kind="code")
+    chapters = [s.title for s in document.sections if s.kind == "chapter"]
+    assert any(title.startswith("Chapter 29.1. ПРИКАЗНОЕ") for title in chapters)
+    assert not any(title.startswith("Chapter 291.") for title in chapters)
+    article_three = next(s for s in document.sections if s.metadata.article_number == "3")
+    assert "В соответствии с Конституцией Российской Федерации" in article_three.text
+    assert any(
+        c.section_id == article_three.section_id
+        and "В соответствии с Конституцией Российской Федерации" in c.text
+        for c in document.chunks
+    )
+    assert any(s.metadata.article_number == "229.5" for s in document.sections)
+    assert not any(s.title.startswith("Section 1. В соответствии") for s in document.sections)
+
+
+def test_real_pdf_review_2026_excludes_approval_directives_from_point_sequence() -> None:
+    path = _require_testing_pdf(
+        "Обзор судебной практики Верховного Суда Российской Федерации № 2 (2026).pdf"
+    )
+    document = chunk_pdf(path, profile="ru", doc_kind="court_guidance")
+    assert [s.metadata.point_number for s in document.sections[1:]] == [
+        str(n) for n in range(1, 53)
+    ]
+    assert len(document.chunks) == 53
+    assert "Утвердить Обзор" in document.chunks[0].text
+    assert "К требованию об исключении земельного участка" in document.chunks[1].text
+    assert document.chunks[-1].metadata.point_number == "52"
+
+
+def test_scanned_pdf_ocr_is_repeatable_quiet_and_preserves_source(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    import json
+
+    import pymupdf
+
+    from legal_chunking.cli import main
+
+    data = TESTINGS_DIR / "ocr-data"
+    if not (data / "eng.traineddata").exists():
+        pytest.skip("Local Tesseract English traineddata is missing")
+    monkeypatch.setenv("TESSDATA_PREFIX", str(data))
+    source = tmp_path / "scan.pdf"
+    with pymupdf.open() as native:
+        page = native.new_page()
+        page.insert_text((72, 90), "Article 1. Scope", fontsize=20)
+        page.insert_text((72, 140), "This act applies to contracts.", fontsize=14)
+        image = page.get_pixmap(dpi=150).tobytes("png")
+    with pymupdf.open() as scanned:
+        scanned.new_page()  # Blank pages must not break forced OCR or renumber later pages.
+        scanned.new_page().insert_image(pymupdf.Rect(0, 0, 595, 842), stream=image)
+        scanned.save(source)
+    original = source.read_bytes()
+    assert chunk_pdf(source).text == ""
+    document = chunk_pdf(source, backend="pymupdf4llm", ocr="force", ocr_dpi=180, trace=True)
+    assert document.text == "Article 1. Scope\nThis act applies to contracts."
+    assert (
+        chunk_pdf(source, backend="pymupdf4llm", ocr="force", ocr_dpi=180, trace=True) == document
+    )
+    assert original == source.read_bytes()
+    events = [e for e in document.trace.events if e.type == "ocr_page_processed"]
+    assert any(e.data["page_number"] == 2 and e.data["dpi"] == 180 for e in events)
+    configuration = next(e for e in document.trace.events if e.type == "ocr_configuration")
+    assert len(configuration.data["model_hashes"]["eng"]) == 64
+    assert capsys.readouterr().out == ""
+    assert (
+        main(
+            [
+                "explain",
+                "--path",
+                str(source),
+                "--backend",
+                "pymupdf4llm",
+                "--ocr",
+                "force",
+                "--ocr-dpi",
+                "180",
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["trace"]["events"]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import lru_cache
 from importlib.resources import files
@@ -23,6 +24,7 @@ class ProfileAssetPointers:
     chunking_policy: str
     guidance_extractors: str = ""
     reference_patterns: str = ""
+    normalization_policy: str = ""
 
 
 @dataclass(slots=True, frozen=True)
@@ -60,14 +62,22 @@ class AssetManifest:
         return {code for code, profile in self.profiles.items() if profile.enabled}
 
 
+@lru_cache(maxsize=64)
 def _read_packaged_json(filename: str) -> dict[str, Any]:
-    payload = json.loads(files(ASSETS_PACKAGE).joinpath(filename).read_text(encoding="utf-8"))
+    if not filename or filename.startswith("/") or ".." in filename.split("/"):
+        raise AssetConfigError(f"Invalid packaged asset path: {filename!r}")
+    try:
+        payload = json.loads(files(ASSETS_PACKAGE).joinpath(filename).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise AssetConfigError(f"Cannot load packaged JSON asset {filename}") from exc
     if not isinstance(payload, Mapping):
         raise AssetConfigError(f"Packaged asset {filename} must be a JSON object")
     return payload
 
 
-def _normalize_aliases(raw_aliases: list[Any]) -> tuple[str, ...]:
+def _normalize_aliases(raw_aliases: object) -> tuple[str, ...]:
+    if not isinstance(raw_aliases, list) or not all(isinstance(a, str) for a in raw_aliases):
+        raise AssetConfigError("Manifest aliases must be a list of strings")
     aliases: list[str] = []
     for alias in raw_aliases:
         normalized = str(alias).strip().lower()
@@ -106,7 +116,7 @@ def _parse_manifest(payload: dict[str, Any]) -> AssetManifest:
                     ReferenceDocFamily(
                         id=str(item.get("id") or "").strip(),
                         kind=str(item.get("kind") or "").strip(),
-                        aliases=_normalize_aliases(list(item.get("aliases", []))),
+                        aliases=_normalize_aliases(item.get("aliases", [])),
                     )
                 )
             reference = ProfileReferenceConfig(
@@ -121,15 +131,25 @@ def _parse_manifest(payload: dict[str, Any]) -> AssetManifest:
             chunking_policy=str(assets.get("chunking_policy") or ""),
             guidance_extractors=str(assets.get("guidance_extractors") or ""),
             reference_patterns=str(assets.get("reference_patterns") or ""),
+            normalization_policy=str(assets.get("normalization_policy") or ""),
         )
         profiles[code] = ProfileManifest(
             code=code,
             enabled=bool(entry.get("enabled", False)),
-            aliases=_normalize_aliases(list(entry.get("aliases", []))),
+            aliases=_normalize_aliases(entry.get("aliases", [])),
             language=str(entry.get("language")).strip().lower() if entry.get("language") else None,
             reference=reference,
             assets=pointers,
         )
+
+    alias_owners = {code: code for code in profiles}
+    for code, profile in profiles.items():
+        if not profile.enabled:
+            continue
+        for alias in profile.aliases:
+            if alias in alias_owners and alias_owners[alias] != code:
+                raise AssetConfigError(f"Ambiguous profile alias: {alias}")
+            alias_owners[alias] = code
 
     return AssetManifest(
         version=int(payload.get("version", 1)),
@@ -146,4 +166,4 @@ def load_manifest() -> AssetManifest:
 
 def load_asset_json(filename: str) -> dict[str, Any]:
     """Load one packaged JSON asset by filename."""
-    return _read_packaged_json(filename)
+    return deepcopy(_read_packaged_json(filename))

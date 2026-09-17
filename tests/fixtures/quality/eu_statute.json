@@ -1,0 +1,64 @@
+{
+  "name": "eu_statute",
+  "profile": "eu",
+  "doc_kind": "primary_legislation",
+  "text": "Chapter I. Scope\n\nArticle 1. Notices\n1. A notice shall identify its sender.\n2. The sender shall retain a copy.\n\nArticle 2. Records\nRecords shall remain accessible.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "",
+      "metadata": {}
+    },
+    {
+      "title": "Chapter I. Scope",
+      "kind": "chapter",
+      "parent": 0,
+      "text": "Chapter I. Scope",
+      "metadata": {}
+    },
+    {
+      "title": "Article 1. Notices",
+      "kind": "article",
+      "parent": 1,
+      "text": "Article 1. Notices\n1. A notice shall identify its sender.\n2. The sender shall retain a copy.",
+      "metadata": {
+        "article_number": "1"
+      }
+    },
+    {
+      "title": "Article 2. Records",
+      "kind": "article",
+      "parent": 1,
+      "text": "Article 2. Records\nRecords shall remain accessible.",
+      "metadata": {
+        "article_number": "2"
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 1,
+      "text": "Chapter I. Scope",
+      "method": "statute_unit",
+      "metadata": {}
+    },
+    {
+      "owner": 2,
+      "text": "Article 1. Notices 1. A notice shall identify its sender. 2. The sender shall retain a copy.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "1"
+      }
+    },
+    {
+      "owner": 3,
+      "text": "Article 2. Records Records shall remain accessible.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "2"
+      }
+    }
+  ]
+}

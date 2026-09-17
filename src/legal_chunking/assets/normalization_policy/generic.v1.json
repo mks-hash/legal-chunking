@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "superscript_digits": "⁰¹²³⁴⁵⁶⁷⁸⁹",
+  "subscript_digits": "₀₁₂₃₄₅₆₇₈₉",
+  "script_suffix_regex": "[⁰¹²³⁴⁵⁶⁷⁸⁹]+(?:[⁻-][⁰¹²³⁴⁵⁶⁷⁸⁹]+)*",
+  "context_families": [
+    "article_like",
+    "chapter_like",
+    "section_like",
+    "point_like",
+    "subpoint_like",
+    "paragraph_like",
+    "part_like"
+  ],
+  "structured_suffix_context": false,
+  "repair_patterns": {},
+  "guidance": {
+    "point_start": "(?m)^(?P<num>\\d{1,3})\\.\\s+(?=[^\\W\\d_])",
+    "inline_point_start": "(?<!\\n)[ \\t]+(?P<num>\\d{1,3})\\.\\s*\\n(?=[^\\W\\d_])",
+    "folio": "^\\d{1,3}$",
+    "footnote": "(?!)",
+    "citation_prefix": "(?!)",
+    "excluded_prefix": "№\\s*$",
+    "max_forward_gap": 3,
+    "body_start": "(?!)"
+  }
+}

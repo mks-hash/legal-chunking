@@ -1,0 +1,51 @@
+{
+  "name": "generic",
+  "profile": "generic",
+  "doc_kind": "primary_legislation",
+  "text": "Article 1. Scope\nThis instrument applies to notices.\n\nArticle 2. Duration\nA notice remains effective for ten days.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "",
+      "metadata": {}
+    },
+    {
+      "title": "Article 1. Scope",
+      "kind": "article",
+      "parent": 0,
+      "text": "Article 1. Scope\nThis instrument applies to notices.",
+      "metadata": {
+        "article_number": "1"
+      }
+    },
+    {
+      "title": "Article 2. Duration",
+      "kind": "article",
+      "parent": 0,
+      "text": "Article 2. Duration\nA notice remains effective for ten days.",
+      "metadata": {
+        "article_number": "2"
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 1,
+      "text": "Article 1. Scope This instrument applies to notices.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "1"
+      }
+    },
+    {
+      "owner": 2,
+      "text": "Article 2. Duration A notice remains effective for ten days.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "2"
+      }
+    }
+  ]
+}

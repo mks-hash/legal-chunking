@@ -1,0 +1,35 @@
+{
+  "name": "generic_case_law",
+  "profile": "generic",
+  "doc_kind": "case_law",
+  "text": "The court considers the request.\n\nThe applicant retained a copy of the notice.\n\nThe request is dismissed.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "The court considers the request.\n\nThe applicant retained a copy of the notice.\n\nThe request is dismissed.",
+      "metadata": {}
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 0,
+      "text": "The court considers the request.",
+      "method": "case_law_paragraph",
+      "metadata": {}
+    },
+    {
+      "owner": 0,
+      "text": "The applicant retained a copy of the notice.",
+      "method": "case_law_paragraph",
+      "metadata": {}
+    },
+    {
+      "owner": 0,
+      "text": "The request is dismissed.",
+      "method": "case_law_paragraph",
+      "metadata": {}
+    }
+  ]
+}

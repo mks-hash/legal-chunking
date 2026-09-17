@@ -70,6 +70,7 @@ def trim_leading_header_fragments(
     *,
     repeated_noise: set[str] | None = None,
     repeated_fingerprints: set[str] | None = None,
+    profile: str = "generic",
 ) -> list[str]:
     start = 0
     if lines and len(lines[0].strip()) == 1 and lines[0].strip().isalpha():
@@ -78,19 +79,40 @@ def trim_leading_header_fragments(
             next_line,
             repeated_noise=repeated_noise,
             repeated_fingerprints=repeated_fingerprints,
+            profile=profile,
         ):
             start = 1
     while (
         start < len(lines)
-        and start < 4
+        and start < 8
         and _is_leading_header_fragment(
             lines[start],
             repeated_noise=repeated_noise,
             repeated_fingerprints=repeated_fingerprints,
+            profile=profile,
         )
     ):
         start += 1
     return lines[start:]
+
+
+def trim_trailing_header_fragments(
+    lines: list[str], *, repeated_noise: set[str] | None = None, profile: str = "generic"
+) -> list[str]:
+    """Trim a contiguous repeated footer; completed body/list/explicit headings stop it."""
+    end = len(lines)
+    while (
+        end > 0
+        and len(lines) - end < 4
+        and _is_leading_header_fragment(
+            lines[end - 1],
+            repeated_noise=repeated_noise,
+            profile=profile,
+            allow_numeric_heading=end < len(lines),
+        )
+    ):
+        end -= 1
+    return lines[:end]
 
 
 def is_structural_heading_line(line: str, *, profile: str) -> bool:
@@ -140,6 +162,10 @@ def append_line(buffer: list[str], line: str, *, profile: str) -> None:
         return
 
     previous = buffer[-1]
+    if re.search(r"\d-$", previous) and line[:1].isdigit():
+        buffer[-1] = previous + line
+        return
+
     if previous.endswith("-") and line[:1].islower():
         buffer[-1] = f"{previous[:-1]}{line}"
         return
@@ -280,8 +306,18 @@ def _is_leading_header_fragment(
     *,
     repeated_noise: set[str] | None = None,
     repeated_fingerprints: set[str] | None = None,
+    profile: str = "generic",
+    allow_numeric_heading: bool = False,
 ) -> bool:
     stripped = (line or "").strip()
+    # Repetition is evidence for a margin candidate, never authority over legal content.
+    heading = detect_heading(stripped, profile=profile)
+    if heading is not None and not (
+        allow_numeric_heading and heading.detector_kind == "numeric_heading"
+    ):
+        return False
+    if is_enumerated_content_line(stripped) or stripped.endswith(_TERMINAL_PUNCTUATION):
+        return False
     if not stripped:
         return False
     if stripped in (repeated_noise or set()):
@@ -328,5 +364,6 @@ __all__ = [
     "merge_marker_lines",
     "normalize_line_text",
     "trim_leading_header_fragments",
+    "trim_trailing_header_fragments",
     "trim_us_running_rule_header",
 ]

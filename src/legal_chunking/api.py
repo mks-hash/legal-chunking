@@ -5,8 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from legal_chunking.chunk import build_chunks
+from legal_chunking.detect.guidance_normalization import normalize_guidance_text
 from legal_chunking.detect.sections import assemble_sections
 from legal_chunking.extract.pdf import extract_pdf_text
+from legal_chunking.legal_normalization import normalize_structural_numbering
 from legal_chunking.models import Document
 from legal_chunking.normalize import normalize_extracted_text
 from legal_chunking.profiles import (
@@ -48,7 +50,13 @@ def _chunk_normalized_text(
 ) -> Document:
     chunk_policy = select_chunk_policy(resolved_profile.chunking_policy, doc_kind=doc_kind)
     fallback = select_chunk_fallback(resolved_profile.chunking_policy)
-    normalized_document = normalize_extracted_text(text)
+    normalized_document = normalize_structural_numbering(
+        normalize_extracted_text(text), profile=resolved_profile.code
+    )
+    if chunk_policy == "guidance":
+        normalized_document = normalize_guidance_text(
+            normalized_document, profile=resolved_profile.code
+        )
     if trace:
         trace_collector = trace_collector or TraceCollector()
     else:
@@ -100,6 +108,11 @@ def chunk_pdf(
     profile: str = "generic",
     doc_kind: str | None = None,
     trace: bool = False,
+    *,
+    backend: str = "pymupdf",
+    ocr: str = "off",
+    ocr_language: str = "eng",
+    ocr_dpi: int = 300,
 ) -> Document:
     """Extract normalized PDF text and pass it through the chunking pipeline."""
     source = Path(path)
@@ -110,6 +123,10 @@ def chunk_pdf(
             source,
             resolved_profile=resolved_profile,
             trace_collector=trace_collector,
+            backend=backend,
+            ocr=ocr,
+            ocr_language=ocr_language,
+            ocr_dpi=ocr_dpi,
         ),
         resolved_profile=resolved_profile,
         source_name=source.name,
@@ -124,5 +141,17 @@ def extract_pdf_text_with_trace(
     *,
     resolved_profile: ResolvedProfile,
     trace_collector: TraceCollector | None,
+    backend: str = "pymupdf",
+    ocr: str = "off",
+    ocr_language: str = "eng",
+    ocr_dpi: int = 300,
 ) -> str:
-    return extract_pdf_text(source, profile=resolved_profile, trace=trace_collector)
+    return extract_pdf_text(
+        source,
+        profile=resolved_profile,
+        trace=trace_collector,
+        backend=backend,
+        ocr=ocr,
+        ocr_language=ocr_language,
+        ocr_dpi=ocr_dpi,
+    )

@@ -36,7 +36,6 @@ def make_document_root(
     *,
     source_name: str,
     order: int,
-    text_length: int,
 ) -> Section:
     return Section(
         section_id=make_section_id(source_name, ["Document"], 1),
@@ -47,7 +46,7 @@ def make_document_root(
         parent_section_id=None,
         path=["Document"],
         start_offset=0,
-        end_offset=text_length,
+        end_offset=0,
         text="",
     )
 

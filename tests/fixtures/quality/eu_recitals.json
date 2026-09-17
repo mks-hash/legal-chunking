@@ -1,0 +1,40 @@
+{
+  "name": "eu_recitals",
+  "profile": "eu",
+  "doc_kind": "primary_legislation",
+  "text": "Whereas:\n(1) Notices should remain accessible.\n(2) Records should identify their sender.\n\nArticle 1. Notices\nA notice shall identify its sender.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "Whereas:\n(1) Notices should remain accessible.\n(2) Records should identify their sender.",
+      "metadata": {}
+    },
+    {
+      "title": "Article 1. Notices",
+      "kind": "article",
+      "parent": 0,
+      "text": "Article 1. Notices\nA notice shall identify its sender.",
+      "metadata": {
+        "article_number": "1"
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 0,
+      "text": "Whereas: (1) Notices should remain accessible. (2) Records should identify their sender.",
+      "method": "statute_unit",
+      "metadata": {}
+    },
+    {
+      "owner": 1,
+      "text": "Article 1. Notices A notice shall identify its sender.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "1"
+      }
+    }
+  ]
+}

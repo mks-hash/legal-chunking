@@ -28,6 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
             default=None,
             help="Optional output file path for JSON or review text.",
         )
+        command_parser.add_argument(
+            "--backend", choices=("pymupdf", "pymupdf4llm"), default="pymupdf"
+        )
+        command_parser.add_argument("--ocr", choices=("off", "auto", "force"), default="off")
+        command_parser.add_argument("--ocr-language", default="eng")
+        command_parser.add_argument("--ocr-dpi", type=int, default=300)
         if command == "review":
             command_parser.add_argument(
                 "--limit",
@@ -51,8 +57,14 @@ def _load_document(
     profile: str,
     doc_kind: str | None,
     trace: bool,
+    backend: str = "pymupdf",
+    ocr: str = "off",
+    ocr_language: str = "eng",
+    ocr_dpi: int = 300,
 ) -> Document:
     if text is not None:
+        if backend != "pymupdf" or ocr != "off":
+            raise ValueError("Extraction options require a PDF path")
         return chunk_text(text, profile=profile, doc_kind=doc_kind, trace=trace)
 
     if path is None:
@@ -60,7 +72,18 @@ def _load_document(
 
     source = Path(path)
     if source.suffix.lower() == ".pdf":
-        return chunk_pdf(source, profile=profile, doc_kind=doc_kind, trace=trace)
+        return chunk_pdf(
+            source,
+            profile=profile,
+            doc_kind=doc_kind,
+            trace=trace,
+            backend=backend,
+            ocr=ocr,
+            ocr_language=ocr_language,
+            ocr_dpi=ocr_dpi,
+        )
+    if backend != "pymupdf" or ocr != "off":
+        raise ValueError("Extraction options require a PDF path")
     return chunk_text(
         source.read_text(encoding="utf-8"),
         profile=profile,
@@ -166,6 +189,10 @@ def main(argv: list[str] | None = None) -> int:
         profile=args.profile,
         doc_kind=args.doc_kind,
         trace=args.command == "explain",
+        backend=args.backend,
+        ocr=args.ocr,
+        ocr_language=args.ocr_language,
+        ocr_dpi=args.ocr_dpi,
     )
     if args.command == "review":
         _emit_output(

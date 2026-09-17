@@ -6,11 +6,11 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from legal_chunking.errors import PdfDependencyError
 from legal_chunking.normalize import normalize_extracted_text
 from legal_chunking.profiles import resolve_profile
 from legal_chunking.tracing import TraceCollector, TraceStage
 
+from .backends import extract_pages
 from .pdf_candidates import (
     EnumeratedContentCandidate,
     PdfLineCandidate,
@@ -29,6 +29,7 @@ from .pdf_rules import (
     merge_marker_lines,
     normalize_line_text,
     trim_leading_header_fragments,
+    trim_trailing_header_fragments,
     trim_us_running_rule_header,
 )
 from .pdf_state import PdfParserState, decide_pdf_line
@@ -58,14 +59,16 @@ def normalize_page_raw_text(
     lines = [
         line
         for line in lines
-        if line
-        and line not in (repeated_noise or set())
-        and not is_profile_specific_noise_line(line, resolved_profile=resolved_profile)
+        if line and not is_profile_specific_noise_line(line, resolved_profile=resolved_profile)
     ]
     lines = trim_leading_header_fragments(
         lines,
         repeated_noise=repeated_noise,
         repeated_fingerprints=repeated_fingerprints,
+        profile=resolved_profile.code,
+    )
+    lines = trim_trailing_header_fragments(
+        lines, repeated_noise=repeated_noise, profile=resolved_profile.code
     )
     if resolved_profile.runtime.pdf.trim_running_rule_headers:
         lines = trim_us_running_rule_header(lines)
@@ -112,6 +115,15 @@ def normalize_page_raw_text(
             )
         if not decision.keep:
             continue
+        if buffer and re.search(r"\d-$", buffer[-1]) and re.match(r"\d+-[^\W\d_]", candidate.text):
+            append_line(buffer, candidate.text, profile=resolved_profile.code)
+            if trace is not None:
+                trace.emit(
+                    TraceStage.EXTRACT,
+                    "pdf_wrapped_identifier_joined",
+                    rule_id="pdf.context.wrapped_numeric_identifier",
+                )
+            continue
         if isinstance(candidate, StructuralHeadingCandidate):
             if buffer:
                 paragraphs.extend(part for part in buffer if part)
@@ -136,52 +148,34 @@ def extract_pdf_pages(
     *,
     profile: str | ResolvedProfile = "generic",
     trace: TraceCollector | None = None,
+    backend: str = "pymupdf",
+    ocr: str = "off",
+    ocr_language: str = "eng",
+    ocr_dpi: int = 300,
 ) -> list[PdfPageText]:
     """Extract normalized page text from a PDF with deterministic cleanup."""
     resolved_profile = coerce_resolved_profile(profile)
-    try:
-        import fitz
-    except ImportError as exc:  # pragma: no cover - dependency contract
-        raise PdfDependencyError(
-            "PyMuPDF is required for PDF extraction. Install with: pip install legal-chunking[pdf]"
-        ) from exc
-
-    document = fitz.open(Path(path))
+    raw_pages = extract_pages(
+        path, backend=backend, ocr=ocr, ocr_language=ocr_language, ocr_dpi=ocr_dpi, trace=trace
+    )
+    normalized_line_pages = [
+        [line for part in page.text.splitlines() if (line := normalize_line_text(part))]
+        for page in raw_pages
+        if page.text.strip()
+    ]
+    repeated_noise = find_repeated_page_noise(normalized_line_pages)
+    repeated_fingerprints = find_repeated_leading_header_fingerprints(normalized_line_pages)
     pages: list[PdfPageText] = []
-    try:
-        raw_pages: list[tuple[int, str]] = []
-        normalized_line_pages: list[list[str]] = []
-        for page_number, page in enumerate(document, start=1):
-            raw = (page.get_text("text") or "").strip()
-            if not raw:
-                continue
-            raw_pages.append((page_number, raw))
-            normalized_line_pages.append(
-                [
-                    line
-                    for line in (
-                        normalize_line_text(part) for part in raw.replace("\r", "\n").split("\n")
-                    )
-                    if line
-                ]
-            )
-
-        repeated_noise = find_repeated_page_noise(normalized_line_pages)
-        repeated_header_fingerprints = find_repeated_leading_header_fingerprints(
-            normalized_line_pages
+    for page in raw_pages:
+        normalized = normalize_page_raw_text(
+            page.text,
+            profile=resolved_profile,
+            repeated_noise=repeated_noise,
+            repeated_fingerprints=repeated_fingerprints,
+            trace=trace,
         )
-        for page_number, raw in raw_pages:
-            normalized = normalize_page_raw_text(
-                raw,
-                profile=resolved_profile,
-                repeated_noise=repeated_noise,
-                repeated_fingerprints=repeated_header_fingerprints,
-                trace=trace,
-            )
-            if normalized:
-                pages.append(PdfPageText(page_number=page_number, text=normalized))
-    finally:
-        document.close()
+        if normalized:
+            pages.append(PdfPageText(page_number=page.page_number, text=normalized))
 
     if resolved_profile.runtime.pdf.trim_rules_body:
         return trim_us_rules_body_pages(pages)
@@ -193,8 +187,20 @@ def extract_pdf_text(
     *,
     profile: str | ResolvedProfile = "generic",
     trace: TraceCollector | None = None,
+    backend: str = "pymupdf",
+    ocr: str = "off",
+    ocr_language: str = "eng",
+    ocr_dpi: int = 300,
 ) -> str:
-    pages = extract_pdf_pages(path, profile=profile, trace=trace)
+    pages = extract_pdf_pages(
+        path,
+        profile=profile,
+        trace=trace,
+        backend=backend,
+        ocr=ocr,
+        ocr_language=ocr_language,
+        ocr_dpi=ocr_dpi,
+    )
     return "\n\n".join(page.text for page in pages).strip()
 
 

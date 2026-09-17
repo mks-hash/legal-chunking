@@ -17,3 +17,7 @@ class InvalidProfileError(LegalChunkingError, ValueError):
 
 class PdfDependencyError(LegalChunkingError, RuntimeError):
     """Raised when PDF extraction is requested without the optional dependency."""
+
+
+class ExtractionError(LegalChunkingError, RuntimeError):
+    """Raised when an optional extraction worker cannot produce a valid result."""

@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-import re
-
-RE_INLINE_GUIDANCE_POINT_START = re.compile(
-    r"(?<!\n)[ \t]+(?P<num>\d{1,3})\.\s*\n(?=[A-ZА-ЯЁ])",
-)
-RE_STANDALONE_PAGE_NUMBER = re.compile(r"^\s*\d{1,3}\s*$")
-RE_FOOTNOTE_LINE = re.compile(r"^\s*\d{1,2}\s+[А-Яа-яA-Za-z].{0,160}$")
+from .guidance_policy import guidance_policy
 
 
-def normalize_guidance_text(text: str) -> str:
-    prepared = RE_INLINE_GUIDANCE_POINT_START.sub(
+def normalize_guidance_text(text: str, *, profile: str = "generic") -> str:
+    policy = guidance_policy(profile)
+    prepared = policy.inline_point_start.sub(
         lambda match: f"\n{match.group('num')}. ",
         text or "",
     )
@@ -23,7 +18,7 @@ def normalize_guidance_text(text: str) -> str:
             if kept and kept[-1] != "":
                 kept.append("")
             continue
-        if is_guidance_page_artifact_line(stripped):
+        if is_guidance_page_artifact_line(stripped, profile=profile):
             continue
         kept.append(stripped)
     while kept and kept[-1] == "":
@@ -33,16 +28,15 @@ def normalize_guidance_text(text: str) -> str:
     return "\n".join(kept).strip()
 
 
-def is_guidance_page_artifact_line(line: str) -> bool:
+def is_guidance_page_artifact_line(line: str, *, profile: str = "generic") -> bool:
+    policy = guidance_policy(profile)
     stripped = (line or "").strip()
     if not stripped:
         return True
-    if RE_STANDALONE_PAGE_NUMBER.match(stripped):
+    if policy.folio.fullmatch(stripped):
         return True
-    if RE_FOOTNOTE_LINE.match(stripped):
-        lower = stripped.lower()
-        if "далее" in lower or "сноск" in lower:
-            return True
+    if policy.footnote.fullmatch(stripped):
+        return True
     return False
 
 

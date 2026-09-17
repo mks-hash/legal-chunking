@@ -8,7 +8,16 @@
     "guidance": "guidance",
     "case_law": "case_law",
     "commentary": "guidance",
-    "other": "default"
+    "other": "default",
+    "constitutional_norm": "statute",
+    "constitutional_legislation": "statute",
+    "regulatory_instrument": "statute",
+    "procedure_rules": "statute",
+    "treaty": "statute",
+    "constitutional_court_decision": "case_law",
+    "administrative_decision": "case_law",
+    "standard": "guidance",
+    "expert_opinion": "guidance"
   },
   "fallback": {
     "max_chars": 1200,
@@ -18,7 +27,11 @@
     "pdf": {},
     "chunk": {
       "document_root_splitter": "title_preamble",
-      "oversized_section_splitter": "rulebook_numeric"
+      "oversized_section_splitter": "rulebook_numeric",
+      "preferred_primary_units": [
+        "section",
+        "article"
+      ]
     },
     "heading": {}
   }

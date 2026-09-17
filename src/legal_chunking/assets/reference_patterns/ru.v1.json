@@ -7,18 +7,28 @@
         "article": {
           "family": "article_like",
           "number_pattern": "\\d+(?:\\.\\d+)*",
-          "required": true
+          "required": true,
+          "coordinated_list": true,
+          "range": true
         },
         "paragraph": {
           "family": "point_like",
-          "number_pattern": "\\d+(?:\\.\\d+)*"
+          "number_pattern": "\\d+(?:\\.\\d+)*",
+          "coordinated_list": true,
+          "range": true
         },
         "part": {
           "family": "part_like",
-          "number_pattern": "\\d+"
+          "number_pattern": "\\d+",
+          "coordinated_list": true,
+          "range": true
         }
       },
-      "order": ["part", "paragraph", "article"]
+      "order": [
+        "part",
+        "paragraph",
+        "article"
+      ]
     },
     {
       "scheme": "ru_article",
@@ -26,20 +36,49 @@
         "article": {
           "family": "article_like",
           "number_pattern": "\\d+(?:\\.\\d+)*",
-          "required": true
+          "required": true,
+          "coordinated_list": true,
+          "range": true
         },
         "paragraph": {
           "family": "point_like",
-          "number_pattern": "\\d+(?:\\.\\d+)*"
+          "number_pattern": "\\d+(?:\\.\\d+)*",
+          "coordinated_list": true,
+          "range": true
         },
         "part": {
           "family": "part_like",
-          "number_pattern": "\\d+"
+          "number_pattern": "\\d+",
+          "coordinated_list": true,
+          "range": true
         }
       },
-      "order": ["paragraph", "part", "article"]
+      "order": [
+        "paragraph",
+        "part",
+        "article"
+      ]
+    },
+    {
+      "scheme": "chapter",
+      "fields": {
+        "article": {
+          "family": "chapter_like",
+          "number_pattern": "\\d+(?:\\.\\d+)*",
+          "required": true,
+          "coordinated_list": true,
+          "range": true
+        }
+      },
+      "order": [
+        "article"
+      ]
     }
   ],
   "patterns": [],
-  "doc_family_patterns": {}
+  "doc_family_patterns": {},
+  "generic_schemes": {
+    "article_like": "ru_article",
+    "section_like": "section"
+  }
 }
