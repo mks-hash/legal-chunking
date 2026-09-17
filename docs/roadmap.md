@@ -39,6 +39,11 @@ Acceptance: representative fixtures assert boundaries, hierarchy, metadata, cont
 preservation and identity; local corpus failures are explained and corrected, and
 missing optional fixtures are visibly distinguished from passing checks.
 
+Compound article numbering now has structure/reference/canonical parity regressions,
+including font-backed PDF extraction. Internal hyphens are retained; unsupported
+hyphen-as-superscript guessing is removed. This preserves source spelling without
+claiming a complete typed locator or range-disambiguation model.
+
 ## 2. Define stable core contracts before a stable release
 
 Specify normalization, section ownership/offsets, fallback behavior, identity and

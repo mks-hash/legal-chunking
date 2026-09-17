@@ -1,0 +1,35 @@
+{
+  "name": "ru_compound_article",
+  "profile": "ru",
+  "doc_kind": "primary_legislation",
+  "input_text": "Статья 225¹⁶⁻¹. Расходы\nТекст статьи.",
+  "text": "Статья 225.16-1. Расходы\nТекст статьи.",
+  "sections": [
+    {
+      "title": "Document",
+      "kind": "document_root",
+      "parent": null,
+      "text": "",
+      "metadata": {}
+    },
+    {
+      "title": "Article 225.16-1. Расходы",
+      "kind": "article",
+      "parent": 0,
+      "text": "Статья 225.16-1. Расходы\nТекст статьи.",
+      "metadata": {
+        "article_number": "225.16-1"
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "owner": 1,
+      "text": "Статья 225.16-1. Расходы Текст статьи.",
+      "method": "statute_unit",
+      "metadata": {
+        "article_number": "225.16-1"
+      }
+    }
+  ]
+}

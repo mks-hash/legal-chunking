@@ -59,6 +59,19 @@ suffixes. RU merged-digit repair is restricted to an asset-approved map, not an
 arbitrary last-digit split. These OCR/reference repairs are not applied wholesale
 to document body text. Normalization does not verify numbering against current law.
 
+Compound raised numbering preserves internal hyphens: `225¹⁶⁻¹`, `225¹⁶-¹`
+and plain `225.16-1` normalize to the same `225.16-1` in structure and citations.
+RU article patterns accept hyphenated identifiers as units before list/range
+composition, so `225.16-1–225.16-3` remains a complete reference range string.
+Repeated normalization is idempotent for these forms. Plain ASCII hyphens are no
+longer guessed to be OCR replacements for superscripts: the previous pre-alpha
+repair `229-5 → 229.5` is removed; `229-5` remains `229-5`. This changes affected
+ParsedReference numbers/canonical payloads, not existing structure/chunk IDs.
+Font-backed raised digits still support `229⁵ → 229.5`; the existing contextual
+underscore/parenthesis repairs are unchanged. Pure text can be ambiguous between a
+hyphenated identifier and a range; the legacy string fields do not resolve that
+ambiguity into typed endpoints or verify the intended number against legislation.
+
 References identify citation components and optional document family; they do not
 resolve a citation to an authoritative document, edition or legal validity.
 Use `to_dict()` or `to_canonical_parts(jurisdiction=...)` for reference payloads.

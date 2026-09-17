@@ -1,3 +1,5 @@
+import pytest
+
 from legal_chunking import ParsedReference, extract_references
 from legal_chunking.reference_context import ReferenceContextResolver
 from legal_chunking.references import (
@@ -16,7 +18,7 @@ def test_normalize_article_number_preserves_canonical_value() -> None:
     assert normalize_article_number(" 159¹ ") == "159.1"
     assert normalize_article_number("229_5") == "229.5"
     assert normalize_article_number("229(5)") == "229.5"
-    assert normalize_article_number("229-5") == "229.5"
+    assert normalize_article_number("229-5") == "229-5"
 
 
 def test_normalize_legal_text_repairs_ru_split_decimal_reference() -> None:
@@ -36,7 +38,7 @@ def test_normalize_legal_text_normalizes_contextual_article_suffix_variants() ->
     assert normalize_legal_text("Статья 333² НК РФ", profile="ru") == "Статья 333.2 НК РФ"
     assert normalize_legal_text("Статья 229_5 ГПК РФ", profile="ru") == "Статья 229.5 ГПК РФ"
     assert normalize_legal_text("Статья 229(5) ГПК РФ", profile="ru") == "Статья 229.5 ГПК РФ"
-    assert normalize_legal_text("Статья 229-5 ГПК РФ", profile="ru") == "Статья 229.5 ГПК РФ"
+    assert normalize_legal_text("Статья 229-5 ГПК РФ", profile="ru") == "Статья 229-5 ГПК РФ"
 
 
 def test_normalize_legal_text_strips_explicit_bracket_footnote_only() -> None:
@@ -374,3 +376,49 @@ def test_explicit_document_family_cannot_override_jurisdiction() -> None:
     assert extract_references("статья 10 НК РФ", profile="ru", doc_family="gk_rf") == []
     refs = extract_references("15 U.S.C. § 78j", profile="us", doc_family=" USC ")
     assert refs[0].doc_family == "usc"
+
+
+@pytest.mark.parametrize("number", ["225¹⁶⁻¹", "225¹⁶-¹", "225¹⁶-1", "225.16-1"])
+def test_compound_article_suffix_is_consistent_across_structure_and_references(number: str) -> None:
+    from legal_chunking import chunk_text
+
+    normalized = "225.16-1"
+    citation = f"статья {number} АПК РФ"
+    assert normalize_article_number(number) == normalized
+    assert normalize_legal_text(citation, profile="ru") == f"статья {normalized} АПК РФ"
+    assert (
+        normalize_legal_text(normalize_legal_text(citation, profile="ru"), profile="ru")
+        == f"статья {normalized} АПК РФ"
+    )
+    doc = chunk_text(f"Статья {number}. Расходы\nТекст статьи.", profile="ru")
+    assert doc.sections[1].metadata.article_number == normalized
+    assert doc.chunks[0].metadata.article_number == normalized
+    refs = extract_references(citation, profile="ru")
+    assert [(r.article_number, r.doc_family) for r in refs] == [(normalized, "apk_rf")]
+    assert refs[0].to_canonical_parts(jurisdiction="ru")["article_number"] == normalized
+    assert (
+        refs[0].article_number
+        == extract_references(doc.text, profile="ru", doc_family="apk_rf")[0].article_number
+    )
+
+
+@pytest.mark.parametrize(
+    "citation,numbers",
+    [
+        ("статьи 10–20 АПК РФ", ["10–20"]),
+        ("статьи 10-20 АПК РФ", ["10-20"]),
+        ("статья 229-5 АПК РФ", ["229-5"]),
+        ("статьи 225.16-1, 225.16-3 АПК РФ", ["225.16-1", "225.16-3"]),
+        ("статьи 225.16-1–225.16-3 АПК РФ", ["225.16-1–225.16-3"]),
+        ("часть 2 статьи 225.16-1 АПК РФ", ["225.16-1"]),
+    ],
+)
+def test_compound_article_and_range_spelling_is_preserved(
+    citation: str, numbers: list[str]
+) -> None:
+    assert normalize_legal_text(citation, profile="ru") == citation
+    refs = extract_references(citation, profile="ru")
+    assert [r.article_number for r in refs] == numbers
+    assert [r.to_canonical_parts(jurisdiction="ru")["article_number"] for r in refs] == numbers
+    if citation.startswith("часть"):
+        assert refs[0].part_number == "2"
