@@ -30,6 +30,7 @@ behavior. No Docker, frontend, MCP or hosted-service setup is required here.
 | `test_sections.py`, `test_headings.py` | Hierarchy, candidate admissibility and legal forms |
 | `test_profiles.py` | Manifest, aliases, policy defaults and reference families |
 | `test_references.py` | Citation normalization and structured parsing |
+| `test_reference_occurrences.py` | Original/normalized input ranges, repeated occurrences, grouped lists and shared family restrictions |
 | `test_real_pdfs.py` | Optional local integration corpus across EU/US/AE/RU |
 
 Run focused tests while changing behavior, then the full suite for pipeline,
@@ -86,7 +87,7 @@ Existing dist files or historical readiness notes are not current evidence.
   PDF checks run; CI does not download the private corpus or OCR models.
 - **Installed core and distribution:** builds wheel/sdist, checks runtime assets
   and private-material exclusion, installs the wheel without extras, then runs
-  text quality contracts and the console entrypoint outside the checkout. The one
+  text quality/reference contracts and the console entrypoint outside the checkout. The one
   synthetic native PDF quality test is excluded only from this core job and runs
   in the dev job. This also checks that PDF packages are absent.
 

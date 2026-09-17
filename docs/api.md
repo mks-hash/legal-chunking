@@ -7,8 +7,8 @@ API and serialization are documented behavior, not a frozen v1 schema.
 
 `legal_chunking.__all__` exports:
 
-- `chunk_text`, `chunk_pdf`, `assemble_sections`, `extract_references`;
-- `Document`, `Section`, `Chunk`, `ParsedReference`;
+- `chunk_text`, `chunk_pdf`, `assemble_sections`, `extract_references`, `analyze_references`;
+- `Document`, `Section`, `Chunk`, `ParsedReference`, `ReferenceAnalysis`, `ReferenceOccurrence`;
 - `LegalChunkingError`, `AssetConfigError`, `InvalidProfileError`,
   `PdfDependencyError`, `ExtractionError`.
 
@@ -50,8 +50,8 @@ three-level point numbers are preserved. Ranges remain range strings (for exampl
 `3–4`); they are not expanded into invented discrete references. Chapter references
 use `scheme="chapter"`; the historical `article_number` field holds their number.
 Likewise `paragraph_number` is the legacy slot for RU points, not a complete typed
-locator chain. Subpoint/ordinal-paragraph roles and occurrence offsets are not a
-full supported address model yet. Results deduplicate canonical components rather
+locator chain. Subpoint/ordinal-paragraph roles are not a full supported address model yet.
+The separate analysis API supplies occurrence intervals. Results deduplicate canonical components rather
 than preserving every occurrence.
 
 Parenthesized EU/US citation identifiers remain parenthesized; they are not RU dotted
@@ -71,6 +71,12 @@ Font-backed raised digits still support `229⁵ → 229.5`; the existing context
 underscore/parenthesis repairs are unchanged. Pure text can be ambiguous between a
 hyphenated identifier and a range; the legacy string fields do not resolve that
 ambiguity into typed endpoints or verify the intended number against legislation.
+
+`analyze_references(text, *, profile="generic", doc_family=None)` adds ordered,
+source-anchored occurrences with a normalized matching view. Original-input and
+normalized-view intervals are explicit; repeated citations and grouped components
+are retained. The existing `extract_references` remains deduplicated. See
+[reference occurrences](references.md) for fields, mapping and compatibility.
 
 References identify citation components and optional document family; they do not
 resolve a citation to an authoritative document, edition or legal validity.

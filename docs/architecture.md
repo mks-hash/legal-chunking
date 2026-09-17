@@ -24,7 +24,8 @@ selected. See [extraction](extraction.md).
 | `detect/heading*`, `detect/section*` | Heading candidates, admissibility and section assembly |
 | `detect/guidance*`, `detect/definitions.py`, `detect/rulebook.py` | Specialized legal forms and metadata |
 | `chunk/runtime.py`, `chunk/splitters.py` | Section selection, splitter registries, hashes and adjacency |
-| `reference_parser.py`, `references.py`, `reference_context.py` | Separate structured reference analysis and normalization |
+| `reference_parser.py`, `references.py`, `reference_context.py` | Shared reference matching/normalization; legacy components and source-anchored occurrence projection |
+| `text_mapping.py` | Optional call-local character-origin intervals through actual normalization edits |
 | `tracing/` | Optional structured events emitted by the actual runtime |
 
 `detect/sections.py`, `detect/headings.py` and `chunk/legal.py` are facades over
