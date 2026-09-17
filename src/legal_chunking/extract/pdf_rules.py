@@ -47,18 +47,25 @@ def find_repeated_leading_header_fingerprints(page_lines: list[list[str]]) -> se
     return {fingerprint for fingerprint, count in counts.items() if count >= 3}
 
 
-def is_profile_specific_noise_line(line: str, *, resolved_profile: ResolvedProfile) -> bool:
+def match_profile_noise_rule(
+    line: str, *, resolved_profile: ResolvedProfile
+) -> tuple[str, str] | None:
+    """Return the actual matching policy field/value; no separate explain predicate."""
     stripped = (line or "").strip()
-    lowered = stripped.lower()
     if not stripped:
-        return False
+        return None
     runtime = resolved_profile.runtime.pdf
-    if lowered in {value.casefold() for value in runtime.drop_line_equals}:
-        return True
+    for value in runtime.drop_line_equals:
+        if stripped.lower() == value.casefold():
+            return "drop_line_equals", value
     for pattern in runtime.drop_line_regexes:
         if re.match(pattern, stripped, re.IGNORECASE):
-            return True
-    return False
+            return "drop_line_regexes", pattern
+    return None
+
+
+def is_profile_specific_noise_line(line: str, *, resolved_profile: ResolvedProfile) -> bool:
+    return match_profile_noise_rule(line, resolved_profile=resolved_profile) is not None
 
 
 def is_running_header_line(line: str) -> bool:

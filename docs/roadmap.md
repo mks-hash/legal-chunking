@@ -52,6 +52,11 @@ wheel and core-without-PDF checks pass. Only then choose a stable release number
 
 ## 3. Improve explainability and extraction independence
 
+Matched heading rejection and explicit PDF cleanup/page-exclusion points now emit
+actual rule/reason events. Reviewed-fixture parity and source-plane regressions
+protect tracing; see [trace coverage](tracing.md). This is a concrete improvement,
+not completion of all normalization/guidance tracing or a provenance schema.
+
 Instrument important acceptance/rejection and boundary decisions with stable rule
 identities, without duplicating the runtime in explain mode. Document trace coverage
 and source-text exposure. Evaluate an extraction-neutral provenance/layout input

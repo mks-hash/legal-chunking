@@ -22,10 +22,10 @@ from .pdf_rules import (
     append_line,
     find_repeated_leading_header_fingerprints,
     find_repeated_page_noise,
-    is_profile_specific_noise_line,
     is_structural_heading_line,
     join_wrapped_line,
     looks_like_heading_continuation,
+    match_profile_noise_rule,
     merge_marker_lines,
     normalize_line_text,
     trim_leading_header_fragments,
@@ -52,26 +52,76 @@ def normalize_page_raw_text(
     repeated_noise: set[str] | None = None,
     repeated_fingerprints: set[str] | None = None,
     trace: TraceCollector | None = None,
+    page_number: int | None = None,
 ) -> str:
     resolved_profile = coerce_resolved_profile(profile)
     raw = (raw or "").replace("\r", "\n")
-    lines = [normalize_line_text(line) for line in raw.split("\n")]
-    lines = [
-        line
-        for line in lines
-        if line and not is_profile_specific_noise_line(line, resolved_profile=resolved_profile)
-    ]
-    lines = trim_leading_header_fragments(
-        lines,
-        repeated_noise=repeated_noise,
-        repeated_fingerprints=repeated_fingerprints,
-        profile=resolved_profile.code,
+    lines: list[str] = []
+    line_numbers: list[int] = []
+    for number, raw_line in enumerate(raw.split("\n"), 1):
+        line = normalize_line_text(raw_line)
+        if not line:
+            continue
+        noise_rule = match_profile_noise_rule(line, resolved_profile=resolved_profile)
+        if noise_rule is not None:
+            if trace is not None:
+                trace.emit(
+                    TraceStage.EXTRACT,
+                    "pdf_text_removed",
+                    rule_id=f"pdf.line.profile_noise.{resolved_profile.code}",
+                    reason="profile_noise",
+                    text=line,
+                    page_number=page_number,
+                    line_number=number,
+                    input_stage="normalized_page_lines",
+                    policy_field=noise_rule[0],
+                    policy_value=noise_rule[1],
+                )
+            continue
+        lines.append(line)
+        line_numbers.append(number)
+
+    def record_trim(remaining: list[str], rule_id: str, *, trailing: bool = False) -> None:
+        nonlocal lines, line_numbers
+        removed_count = len(lines) - len(remaining)
+        cut = len(remaining) if trailing else removed_count
+        removed_lines = lines[cut:] if trailing else lines[:cut]
+        removed_numbers = line_numbers[cut:] if trailing else line_numbers[:cut]
+        if trace is not None:
+            for text, number in zip(removed_lines, removed_numbers, strict=True):
+                trace.emit(
+                    TraceStage.EXTRACT,
+                    "pdf_text_removed",
+                    rule_id=rule_id,
+                    reason="trailing_margin" if trailing else "leading_margin",
+                    text=text,
+                    page_number=page_number,
+                    line_number=number,
+                    input_stage="normalized_page_lines",
+                )
+        lines = remaining
+        line_numbers = line_numbers[:cut] if trailing else line_numbers[cut:]
+
+    record_trim(
+        trim_leading_header_fragments(
+            lines,
+            repeated_noise=repeated_noise,
+            repeated_fingerprints=repeated_fingerprints,
+            profile=resolved_profile.code,
+        ),
+        "pdf.margin.repeated_leading",
     )
-    lines = trim_trailing_header_fragments(
-        lines, repeated_noise=repeated_noise, profile=resolved_profile.code
+    record_trim(
+        trim_trailing_header_fragments(
+            lines,
+            repeated_noise=repeated_noise,
+            profile=resolved_profile.code,
+        ),
+        "pdf.margin.repeated_trailing",
+        trailing=True,
     )
     if resolved_profile.runtime.pdf.trim_running_rule_headers:
-        lines = trim_us_running_rule_header(lines)
+        record_trim(trim_us_running_rule_header(lines), "pdf.margin.us_running_rule")
     classified_lines = _classify_lines(lines, resolved_profile=resolved_profile)
     if trace is not None:
         for candidate in classified_lines:
@@ -86,7 +136,31 @@ def normalize_page_raw_text(
         if isinstance(candidate, TocLeaderCandidate) and candidate.target_page is not None
     ]
     if len(toc_candidates) >= 2:
+        if trace is not None:
+            trace.emit(
+                TraceStage.EXTRACT,
+                "pdf_page_removed",
+                rule_id="pdf.page.toc_leader_cluster",
+                reason="toc_leader_cluster",
+                page_number=page_number,
+                toc_leader_count=len(toc_candidates),
+                text="\n".join(item.text for item in classified_lines),
+                input_stage="normalized_page_lines",
+            )
         return ""
+    if trace is not None:
+        for candidate, number in zip(classified_lines, line_numbers, strict=True):
+            if candidate.should_drop:
+                trace.emit(
+                    TraceStage.EXTRACT,
+                    "pdf_text_removed",
+                    rule_id=candidate.rule_id,
+                    reason=candidate.kind,
+                    text=candidate.text,
+                    page_number=page_number,
+                    line_number=number,
+                    input_stage="normalized_page_lines",
+                )
     lines = merge_marker_lines([item.text for item in classified_lines if not item.should_drop])
     if resolved_profile.runtime.pdf.merge_wrapped_headings:
         lines = _merge_wrapped_heading_lines(lines, resolved_profile=resolved_profile)
@@ -95,7 +169,7 @@ def normalize_page_raw_text(
     paragraphs: list[str] = []
     buffer: list[str] = []
     state = PdfParserState.FRONT_MATTER
-    for candidate in refined_candidates:
+    for number, candidate in enumerate(refined_candidates, 1):
         if not candidate.text:
             if buffer:
                 paragraphs.extend(part for part in buffer if part)
@@ -114,6 +188,18 @@ def normalize_page_raw_text(
                 **_candidate_trace_payload(candidate),
             )
         if not decision.keep:
+            if trace is not None:
+                trace.emit(
+                    TraceStage.EXTRACT,
+                    "pdf_text_removed",
+                    rule_id=candidate.rule_id,
+                    reason="parser_state_rejected",
+                    text=candidate.text,
+                    page_number=page_number,
+                    line_number=number,
+                    input_stage="refined_page_lines",
+                    state=decision.state,
+                )
             continue
         if buffer and re.search(r"\d-$", buffer[-1]) and re.match(r"\d+-[^\W\d_]", candidate.text):
             append_line(buffer, candidate.text, profile=resolved_profile.code)
@@ -173,12 +259,13 @@ def extract_pdf_pages(
             repeated_noise=repeated_noise,
             repeated_fingerprints=repeated_fingerprints,
             trace=trace,
+            page_number=page.page_number,
         )
         if normalized:
             pages.append(PdfPageText(page_number=page.page_number, text=normalized))
 
     if resolved_profile.runtime.pdf.trim_rules_body:
-        return trim_us_rules_body_pages(pages)
+        return trim_us_rules_body_pages(pages, trace=trace)
     return pages
 
 
@@ -210,7 +297,9 @@ def coerce_resolved_profile(profile: str | ResolvedProfile) -> ResolvedProfile:
     return resolve_profile(str(profile))
 
 
-def trim_us_rules_body_pages(pages: list[PdfPageText]) -> list[PdfPageText]:
+def trim_us_rules_body_pages(
+    pages: list[PdfPageText], *, trace: TraceCollector | None = None
+) -> list[PdfPageText]:
     if not pages:
         return pages
     start_index = 0
@@ -224,9 +313,32 @@ def trim_us_rules_body_pages(pages: list[PdfPageText]) -> list[PdfPageText]:
     if not trimmed:
         return pages
 
+    if trace is not None:
+        for page in pages[:start_index]:
+            trace.emit(
+                TraceStage.EXTRACT,
+                "pdf_page_removed",
+                rule_id="pdf.document.us_rules_front_matter",
+                reason="before_rules_body",
+                page_number=page.page_number,
+                text=page.text,
+                input_stage="cleaned_page_text",
+            )
     first_page = trimmed[0]
     body_start = _US_RULES_BODY_START_RE.search(first_page.text)
     if body_start is not None:
+        if trace is not None and body_start.start() > 0:
+            trace.emit(
+                TraceStage.EXTRACT,
+                "pdf_text_removed",
+                rule_id="pdf.document.us_rules_body_prefix",
+                reason="before_rules_body",
+                page_number=first_page.page_number,
+                text=first_page.text[: body_start.start()],
+                start_offset=0,
+                end_offset=body_start.start(),
+                input_stage="cleaned_page_text",
+            )
         trimmed_text = first_page.text[body_start.start() :].strip()
         trimmed[0] = PdfPageText(page_number=first_page.page_number, text=trimmed_text)
     return trimmed

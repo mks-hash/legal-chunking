@@ -136,6 +136,15 @@ metadata rather than assume the first schedule chunk is a definition. Definition
 text/content hashes and resulting chunk IDs change, and later global chunk orders
 can shift. Document text and section hierarchy are unaffected by this correction.
 
+## Trace coverage
+
+`trace=True` adds matched-heading rejection and PDF text/page-removal decisions
+with rule identities and reasons, alongside existing events. Result text/sections/
+chunks are invariant to tracing. PDF event coordinates identify explicit source
+planes and must not be treated as `Document.text` offsets. The additive events may
+change event counts/order expectations and include discarded source text. See
+[runtime decision traces](tracing.md) for fields, coverage and limitations.
+
 ## CLI serialization
 
 `chunk` emits source/profile/language/policy plus full chunk records including text.
