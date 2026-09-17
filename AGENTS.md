@@ -63,10 +63,16 @@ product contracts into public docs. Keep small, redistributable regressions in
 
 ## Git and external actions
 
+For GitHub/branch/PR/merge actions follow
+[the GitHub contract](.github/AGENTS.override.md) together with these instructions.
+`main` is the only trunk; historical `dev` is deprecated as a base/target.
+Use `<type>/<short-kebab-case-description>` for branches, such as `feat/ocr-extraction`
+or `fix/pdf-cleanup`; do not use the `codex/` prefix.
+
 Inspect branch and working-tree state first; preserve unrelated user work.
-Do not automatically switch to or reset `dev`, pull, commit, push or open a PR
-just because a local editing task is requested. For requested GitHub work, inspect
-actual remotes and repository rules rather than assuming branches or required CI.
-Use one logical change per branch/PR; use `codex/` for new branches unless directed
-otherwise. Describe behavior, validation and limitations in the PR. Merge, publish
-and messages to other people require authorization for that action.
+Do not automatically switch/reset branches, pull, commit, push or open a PR just
+because a local editing task is requested. For requested GitHub work inspect actual
+remotes and live repository rules rather than assuming reviews or required CI.
+Describe behavior, validation and limitations in the PR. Merge, publish and messages
+to other people require authorization for that action; existing session authorization
+persists. Do not weaken GitHub protections to perform an authorized merge.

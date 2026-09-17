@@ -76,3 +76,11 @@ environment, exercise text/reference APIs without PDF extras, then PDF support
 with the extra. Test CLI from that installed artifact. Record versions and checks.
 Existing dist files or historical readiness notes are not current evidence.
 There is currently no checked-in CI workflow; local checks are not a CI claim.
+
+## GitHub workflow
+
+`main` is the only trunk. Use a short-lived `<type>/<description>` branch and a PR
+into `main`; `dev` is historical and must not be used as a new base/target. Branch
+names, Conventional Commit messages, synchronization and GitHub approval rules are
+owned by [the GitHub contract](../.github/AGENTS.override.md).
+This branch policy does not change the Python `dev` installation extra.
