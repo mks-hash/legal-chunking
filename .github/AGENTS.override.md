@@ -67,9 +67,11 @@ changes use [python-library](../.agents/skills/python-library/SKILL.md); engine,
 profile, reference or identity changes additionally use
 [legal-engine](../.agents/skills/legal-engine/SKILL.md).
 
-No checked-in CI workflow currently exists. Do not claim CI coverage or require a
-nonexistent `repo-contracts.yml` or another project's skills/scripts. If introducing
-CI, use this repository's Python version, actual pytest/Ruff commands and packaging
-contracts; report absent optional PDF/OCR fixtures as skips, not fidelity evidence.
+[Python validation](workflows/python-validation.yml) runs on PRs into `main`, pushes
+to `main` and manual dispatch. It checks pytest/Ruff with dev extras and separately
+builds/installs the core wheel without PDF extras outside the checkout. Follow this
+repository's actual Python, dependency and packaging contracts; do not import
+another project's `repo-contracts.yml` or skills/scripts. Report absent optional
+PDF/OCR fixtures as skips, not fidelity evidence.
 Never weaken checks to obtain green status. Keep CI, docs and validation commands
 aligned when they change. Large/private fixtures remain outside Git in `.develop/`.
