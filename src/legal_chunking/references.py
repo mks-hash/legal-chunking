@@ -6,16 +6,17 @@ import re
 from functools import lru_cache
 
 from legal_chunking.legal_normalization import (
+    _normalize_structural_numbering_view,
     approved_number,
     normalize_number_scripts,
-    normalize_structural_numbering,
     numeric_script_rules,
     repair_patterns,
 )
-from legal_chunking.normalize import normalize_extracted_text
+from legal_chunking.normalize import _normalize_extracted_view
 from legal_chunking.numbering_markers import get_numbering_aliases
 from legal_chunking.profiles import resolve_profile
 from legal_chunking.reference_context import ReferenceContextResolver
+from legal_chunking.text_mapping import _TextView
 
 _SCRIPT_SUFFIX_PATTERN, _SUPERSCRIPT_TRANS, _SUBSCRIPT_TRANS = numeric_script_rules()
 _SUPERSCRIPT_SUFFIX_RE = re.compile(
@@ -76,20 +77,22 @@ def _has_number_context(text: str, *, start: int, end: int, profile: str) -> boo
     return before.search(text[:start]) is not None or after.match(text[end:]) is not None
 
 
-def _normalize_contextual_reference_suffixes(text: str, *, profile: str) -> str:
+def _normalize_contextual_reference_suffixes(text: _TextView, *, profile: str) -> _TextView:
     def replace_superscript(match: re.Match[str]) -> str:
-        if not _has_number_context(text, start=match.start(), end=match.end(), profile=profile):
+        if not _has_number_context(
+            normalized.text, start=match.start(), end=match.end(), profile=profile
+        ):
             return match.group(0)
         suffix = match.group("suffix").translate(_SUPERSCRIPT_TRANS)
         return f"{match.group('base')}.{suffix}"
 
-    normalized = normalize_structural_numbering(text, profile=profile)
+    normalized = _normalize_structural_numbering_view(text, profile=profile)
     # Bare number next to a manifest source alias is a reference shorthand.
-    normalized = _SUPERSCRIPT_SUFFIX_RE.sub(replace_superscript, normalized)
+    normalized = normalized.sub(_SUPERSCRIPT_SUFFIX_RE, replace_superscript)
 
     def replace_structured(match: re.Match[str]) -> str:
         if not _has_number_context(
-            normalized,
+            normalized.text,
             start=match.start(),
             end=match.end(),
             profile=profile,
@@ -100,20 +103,20 @@ def _normalize_contextual_reference_suffixes(text: str, *, profile: str) -> str:
 
     if not resolve_profile(profile).normalization_policy.get("structured_suffix_context", False):
         return normalized
-    return _STRUCTURED_SUFFIX_RE.sub(replace_structured, normalized)
+    return normalized.sub(_STRUCTURED_SUFFIX_RE, replace_structured)
 
 
-def _drop_contextual_footnote_markers(text: str, *, profile: str) -> str:
+def _drop_contextual_footnote_markers(text: _TextView, *, profile: str) -> _TextView:
     def replace_superscript_footnote(match: re.Match[str]) -> str:
-        if _has_reference_context(text, start=match.start(), end=match.end(), profile=profile):
+        if _has_reference_context(text.text, start=match.start(), end=match.end(), profile=profile):
             return match.group(0)
         return match.group("word")
 
-    normalized = _WORD_SUPERSCRIPT_FOOTNOTE_RE.sub(replace_superscript_footnote, text)
+    normalized = text.sub(_WORD_SUPERSCRIPT_FOOTNOTE_RE, replace_superscript_footnote)
 
     def replace_bracket_footnote(match: re.Match[str]) -> str:
         if _has_reference_context(
-            normalized,
+            normalized.text,
             start=match.start(),
             end=match.end(),
             profile=profile,
@@ -121,64 +124,64 @@ def _drop_contextual_footnote_markers(text: str, *, profile: str) -> str:
             return match.group(0)
         return match.group("word")
 
-    return _WORD_BRACKET_FOOTNOTE_RE.sub(replace_bracket_footnote, normalized)
+    return normalized.sub(_WORD_BRACKET_FOOTNOTE_RE, replace_bracket_footnote)
 
 
-def _repair_legal_article_footnotes(text: str, *, profile: str) -> str:
+def _repair_legal_article_footnotes(text: _TextView, *, profile: str) -> _TextView:
     if not repair_patterns(resolve_profile(profile).code):
         return text
     rules = repair_patterns(resolve_profile(profile).code)
-    return rules["article_bracket_footnote_re"].sub(r"\1", text)
+    return text.sub(rules["article_bracket_footnote_re"], r"\1")
 
 
-def _repair_split_legal_decimals(text: str, *, profile: str) -> str:
+def _repair_split_legal_decimals(text: _TextView, *, profile: str) -> _TextView:
     if not repair_patterns(resolve_profile(profile).code):
         return text
     rules = repair_patterns(resolve_profile(profile).code)
-    return rules["legal_ref_split_decimal_re"].sub(
+    return text.sub(
+        rules["legal_ref_split_decimal_re"],
         lambda match: f"{match.group(1)}.{match.group(2)}",
-        text,
     )
 
 
-def _repair_merged_article_decimals(text: str, *, profile: str) -> str:
+def _repair_merged_article_decimals(text: _TextView, *, profile: str) -> _TextView:
     if not repair_patterns(resolve_profile(profile).code):
         return text
 
     rules = repair_patterns(resolve_profile(profile).code)
-    normalized = rules["legal_ref_merged_decimal_re"].sub(
+    normalized = text.sub(
+        rules["legal_ref_merged_decimal_re"],
         lambda match: match.group(1) + approved_number(profile, "article", match.group("number")),
-        text,
     )
-    normalized = rules["legal_chapter_merged_decimal_re"].sub(
+    normalized = normalized.sub(
+        rules["legal_chapter_merged_decimal_re"],
         lambda match: match.group(1) + approved_number(profile, "chapter", match.group("number")),
-        normalized,
     )
-    return rules["legal_range_end_merged_decimal_re"].sub(
+    return normalized.sub(
+        rules["legal_range_end_merged_decimal_re"],
         lambda match: match.group(1) + approved_number(profile, "range_end", match.group("number")),
-        normalized,
     )
 
 
-def _repair_heading_merged_legal_decimals(text: str, *, profile: str) -> str:
+def _repair_heading_merged_legal_decimals(text: _TextView, *, profile: str) -> _TextView:
     if not repair_patterns(resolve_profile(profile).code):
         return text
 
     rules = repair_patterns(resolve_profile(profile).code)
-    return rules["heading_merged_decimal_re"].sub(
+    return text.sub(
+        rules["heading_merged_decimal_re"],
         lambda match: (
             match.group("indent")
             + approved_number(profile, "chapter", match.group("number"))
             + match.group("tail")
         ),
-        text,
     )
 
 
-def normalize_legal_text(text: str, *, profile: str = "generic") -> str:
-    normalized = normalize_extracted_text(text or "")
-    if not normalized:
-        return ""
+def _normalize_legal_view(view: _TextView, *, profile: str) -> _TextView:
+    normalized = _normalize_extracted_view(view)
+    if not normalized.text:
+        return normalized
     normalized = _repair_legal_article_footnotes(normalized, profile=profile)
     normalized = _normalize_contextual_reference_suffixes(normalized, profile=profile)
     normalized = _drop_contextual_footnote_markers(normalized, profile=profile)
@@ -188,8 +191,17 @@ def normalize_legal_text(text: str, *, profile: str = "generic") -> str:
     return normalized.strip()
 
 
+def _normalize_reference_view(text: str, *, profile: str, track: bool = False) -> _TextView:
+    view = _normalize_legal_view(_TextView.from_source(text or "", track=track), profile=profile)
+    return view.sub(re.compile(r"\s+"), " ").strip()
+
+
+def normalize_legal_text(text: str, *, profile: str = "generic") -> str:
+    return _normalize_legal_view(_TextView.from_source(text or ""), profile=profile).text
+
+
 def normalize_reference_text(text: str, *, profile: str = "generic") -> str:
-    return re.sub(r"\s+", " ", normalize_legal_text(text or "", profile=profile)).strip()
+    return _normalize_reference_view(text, profile=profile).text
 
 
 __all__ = [

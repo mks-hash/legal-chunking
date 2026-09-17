@@ -9,6 +9,7 @@ from legal_chunking.errors import AssetConfigError
 from legal_chunking.manifest import load_asset_json
 from legal_chunking.numbering_markers import build_numbering_marker_pattern
 from legal_chunking.profiles import resolve_profile
+from legal_chunking.text_mapping import _TextView
 
 
 @lru_cache(maxsize=1)
@@ -48,12 +49,16 @@ def numbering_context_pattern(profile: str) -> re.Pattern[str]:
     )
 
 
-def normalize_structural_numbering(text: str, *, profile: str) -> str:
-    # Require the immediately adjacent marker. Nearby legal text is not evidence
-    # that a formula, footnote or a US parenthesized subunit is a dotted number.
-    return numbering_context_pattern(profile).sub(
-        lambda m: m.group("marker") + normalize_number_scripts(m.group("number")), text
+def _normalize_structural_numbering_view(view: _TextView, *, profile: str) -> _TextView:
+    # Require the adjacent marker; nearby legal prose does not prove numbering.
+    return view.sub(
+        numbering_context_pattern(profile),
+        lambda m: m.group("marker") + normalize_number_scripts(m.group("number")),
     )
+
+
+def normalize_structural_numbering(text: str, *, profile: str) -> str:
+    return _normalize_structural_numbering_view(_TextView.from_source(text), profile=profile).text
 
 
 @lru_cache(maxsize=8)

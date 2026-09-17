@@ -88,3 +88,12 @@ Add profiles or document families when reusable engine mechanics and licensed
 fixtures justify them. Existing profiles must retain their regression behavior.
 Optional terminal rendering is lower priority than faithful structure and traces.
 Retrieval, embedding, routing taxonomies and product workflows remain downstream.
+
+## Reference occurrence foundation
+
+The additive analysis API now retains repeated occurrences, verbatim input locator
+slices and explicit original/normalized intervals through actual normalization edits.
+Legacy extraction still deduplicates components. Coordinated members share their
+matched source scope, with no invented range expansion. See
+[reference occurrences](references.md). This does not complete typed locator chains,
+authoritative target resolution or extraction-neutral PDF provenance.

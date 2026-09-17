@@ -422,3 +422,12 @@ def test_compound_article_and_range_spelling_is_preserved(
     assert [r.to_canonical_parts(jurisdiction="ru")["article_number"] for r in refs] == numbers
     if citation.startswith("часть"):
         assert refs[0].part_number == "2"
+
+
+def test_range_endpoint_context_uses_current_view_after_first_superscript_repair() -> None:
+    text = "статьи 225¹⁶⁻¹–225¹⁶⁻³ АПК РФ"
+    normalized = "статьи 225.16-1–225.16-3 АПК РФ"
+    assert normalize_legal_text(text, profile="ru") == normalized
+    refs = extract_references(text, profile="ru")
+    assert [r.article_number for r in refs] == ["225.16-1–225.16-3"]
+    assert normalize_legal_text(normalized, profile="ru") == normalized

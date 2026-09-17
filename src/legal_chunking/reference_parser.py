@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from bisect import bisect_left
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from itertools import product
 
@@ -11,15 +12,18 @@ from legal_chunking.errors import AssetConfigError
 from legal_chunking.manifest import ReferenceDocFamily, load_manifest
 from legal_chunking.numbering_markers import get_numbering_family_aliases
 from legal_chunking.profiles import (
+    ResolvedProfile,
     find_doc_family_alias_hits,
     resolve_doc_family_near,
     resolve_profile,
 )
 from legal_chunking.references import (
+    _normalize_reference_view,
     normalize_article_number,
     normalize_numeric_scripts,
-    normalize_reference_text,
 )
+
+type _ReferenceKey = tuple[str, str | None, str | None, str | None, str | None]
 
 
 @dataclass(slots=True, frozen=True)
@@ -355,19 +359,59 @@ def _field_numbers(raw: str | None, profile: str) -> list[str | None]:
     return values
 
 
-def extract_references(
-    text: str,
+@dataclass(slots=True, frozen=True)
+class ReferenceOccurrence:
+    """One selected locator match, with input and normalized-view intervals."""
+
+    start_offset: int
+    end_offset: int
+    raw: str
+    normalized_start_offset: int
+    normalized_end_offset: int
+    references: tuple[ParsedReference, ...]
+
+
+@dataclass(slots=True, frozen=True)
+class ReferenceAnalysis:
+    profile: str
+    normalized_text: str
+    occurrences: tuple[ReferenceOccurrence, ...]
+
+
+@dataclass(slots=True, frozen=True)
+class _ReferenceMatch:
+    start: int
+    end: int
+    reference: ParsedReference
+    scoped: bool
+
+
+def _validate_reference_args(
+    profile: str, doc_family: str | None
+) -> tuple[ResolvedProfile, str | None]:
+    resolved = resolve_profile(profile)
+    if doc_family:
+        doc_family = doc_family.strip().lower()
+        if doc_family not in {f.id for f in resolved.doc_families}:
+            raise ValueError(
+                f"Unknown document family {doc_family!r} for profile {resolved.code!r}"
+            )
+    return resolved, doc_family
+
+
+def _reference_key(
+    ref: ParsedReference,
+) -> _ReferenceKey:
+    return ref.scheme, ref.article_number, ref.paragraph_number, ref.part_number, ref.doc_family
+
+
+def _match_references(
+    text_norm: str,
     *,
     profile: str = "generic",
     doc_family: str | None = None,
-) -> list[ParsedReference]:
-    resolved_profile = resolve_profile(profile)
-    if doc_family:
-        doc_family = doc_family.strip().lower()
-        if doc_family not in {f.id for f in resolved_profile.doc_families}:
-            raise ValueError(
-                f"Unknown document family {doc_family!r} for profile {resolved_profile.code!r}"
-            )
+) -> Iterator[_ReferenceMatch]:
+    resolved_profile, doc_family = _validate_reference_args(profile, doc_family)
     reference_config = load_manifest().profiles[resolved_profile.code].reference
     require_doc_family = bool(
         reference_config is not None
@@ -380,29 +424,18 @@ def extract_references(
         if isinstance(inherited_family, ReferenceDocFamily)
         else inherited_family
     )
-    text_norm = normalize_reference_text(text or "", profile=resolved_profile.code)
     alias_hits = find_doc_family_alias_hits(resolved_profile.code, text_norm.strip().lower())
-    results: list[ParsedReference] = []
-    seen: set[tuple[str, str | None, str | None, str | None, str | None]] = set()
     scoped_patterns, generic_patterns = _jurisdiction_scheme_patterns(
         resolved_profile.code,
         doc_family=doc_family,
     )
 
-    def append_reference(ref: ParsedReference) -> None:
+    def make_match(
+        match: re.Match[str], ref: ParsedReference, *, scoped: bool
+    ) -> _ReferenceMatch | None:
         if require_doc_family and not ref.doc_family:
-            return
-        key = (
-            ref.scheme,
-            ref.article_number,
-            ref.paragraph_number,
-            ref.part_number,
-            ref.doc_family,
-        )
-        if key in seen:
-            return
-        seen.add(key)
-        results.append(ref)
+            return None
+        return _ReferenceMatch(match.start(), match.end(), ref, scoped)
 
     candidates = [
         (spec, match) for spec in scoped_patterns for match in spec.pattern.finditer(text_norm)
@@ -410,7 +443,7 @@ def extract_references(
     candidates.sort(key=lambda item: (item[1].start(), -len(item[1].group(0))))
     admitted_spans: list[tuple[int, int]] = []
     for spec, match in candidates:
-        if any(match.start() < end and match.end() > start for start, end in admitted_spans):
+        if admitted_spans and match.start() < admitted_spans[-1][1]:
             continue
         admitted_spans.append((match.start(), match.end()))
         match_family = _resolve_match_doc_family(
@@ -430,7 +463,8 @@ def extract_references(
         ):
             if inherited_family_id and match_family != inherited_family_id:
                 continue
-            append_reference(
+            record = make_match(
+                match,
                 ParsedReference(
                     raw=match.group(0),
                     scheme=spec.scheme,
@@ -438,12 +472,17 @@ def extract_references(
                     paragraph_number=paragraph,
                     part_number=part,
                     doc_family=match_family,
-                )
+                ),
+                scoped=True,
             )
+            if record is not None:
+                yield record
 
+    admitted_starts = [start for start, _ in admitted_spans]
     for spec in generic_patterns:
         for match in spec.pattern.finditer(text_norm):
-            if any(match.start() < end and match.end() > start for start, end in admitted_spans):
+            index = bisect_left(admitted_starts, match.end()) - 1
+            if index >= 0 and match.start() < admitted_spans[index][1]:
                 continue
             article = normalize_numeric_scripts(match.group("article")).strip()
             if not article:
@@ -458,7 +497,8 @@ def extract_references(
             )
             if inherited_family_id and match_family != inherited_family_id:
                 continue
-            append_reference(
+            record = make_match(
+                match,
                 ParsedReference(
                     raw=match.group(0),
                     scheme=spec.scheme,
@@ -466,10 +506,99 @@ def extract_references(
                     paragraph_number=None,
                     part_number=None,
                     doc_family=match_family,
-                )
+                ),
+                scoped=False,
             )
+            if record is not None:
+                yield record
 
+
+def extract_references(
+    text: str, *, profile: str = "generic", doc_family: str | None = None
+) -> list[ParsedReference]:
+    """Preserve the legacy component deduplication and pattern traversal order."""
+    resolved, doc_family = _validate_reference_args(profile, doc_family)
+    view = _normalize_reference_view(text, profile=resolved.code)
+    results: list[ParsedReference] = []
+    seen = set()
+    for match in _match_references(view.text, profile=resolved.code, doc_family=doc_family):
+        key = _reference_key(match.reference)
+        if key not in seen:
+            seen.add(key)
+            results.append(match.reference)
     return results
 
 
-__all__ = ["ParsedReference", "extract_references"]
+def _longest_component_spans(
+    groups: dict[tuple[int, int], list[ParsedReference]],
+) -> set[tuple[int, int, _ReferenceKey]]:
+    # Only overlapping alternatives of the same component compete. Partition into
+    # overlap clusters so repeated non-overlapping citations do not incur O(n²).
+    by_key: dict[
+        tuple[str, str | None, str | None, str | None, str | None], set[tuple[int, int]]
+    ] = {}
+    for span, refs in groups.items():
+        for ref in refs:
+            by_key.setdefault(_reference_key(ref), set()).add(span)
+    retained = set()
+    for key, spans in by_key.items():
+        cluster: list[tuple[int, int]] = []
+        max_end = -1
+
+        def admit_cluster(cluster: list[tuple[int, int]], key: _ReferenceKey) -> None:
+            admitted: list[tuple[int, int]] = []
+            for start, end in sorted(cluster, key=lambda s: (-(s[1] - s[0]), s[0])):
+                if not any(
+                    start < other_end and end > other_start for other_start, other_end in admitted
+                ):
+                    admitted.append((start, end))
+                    retained.add((start, end, key))
+
+        for start, end in sorted(spans):
+            if start >= max_end and cluster:
+                admit_cluster(cluster, key)
+                cluster = []
+            cluster.append((start, end))
+            max_end = max(max_end, end)
+        admit_cluster(cluster, key)
+    return retained
+
+
+def analyze_references(
+    text: str, *, profile: str = "generic", doc_family: str | None = None
+) -> ReferenceAnalysis:
+    """Retain input anchors and repeated occurrences with shared parser policy."""
+    resolved, doc_family = _validate_reference_args(profile, doc_family)
+    source = text or ""
+    view = _normalize_reference_view(source, profile=resolved.code, track=True)
+    groups: dict[tuple[int, int], list[ParsedReference]] = {}
+    for match in _match_references(view.text, profile=resolved.code, doc_family=doc_family):
+        refs = groups.setdefault((match.start, match.end), [])
+        # Scoped list products preserve duplicate source members. Generic alternatives
+        # matching the identical interval/component are not new physical occurrences.
+        if match.scoped or not any(
+            _reference_key(r) == _reference_key(match.reference) for r in refs
+        ):
+            refs.append(match.reference)
+    retained = _longest_component_spans(groups)
+    occurrences = []
+    for (start, end), refs in sorted(groups.items()):
+        admitted = tuple(ref for ref in refs if (start, end, _reference_key(ref)) in retained)
+        if not admitted:
+            continue
+        source_start, source_end = view.source_range(start, end)
+        occurrences.append(
+            ReferenceOccurrence(
+                source_start, source_end, source[source_start:source_end], start, end, admitted
+            )
+        )
+    return ReferenceAnalysis(resolved.code, view.text, tuple(occurrences))
+
+
+__all__ = [
+    "ParsedReference",
+    "ReferenceAnalysis",
+    "ReferenceOccurrence",
+    "analyze_references",
+    "extract_references",
+]

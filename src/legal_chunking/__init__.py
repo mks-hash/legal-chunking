@@ -10,7 +10,13 @@ from legal_chunking.errors import (
     PdfDependencyError,
 )
 from legal_chunking.models import Chunk, Document, Section
-from legal_chunking.reference_parser import ParsedReference, extract_references
+from legal_chunking.reference_parser import (
+    ParsedReference,
+    ReferenceAnalysis,
+    ReferenceOccurrence,
+    analyze_references,
+    extract_references,
+)
 
 __all__ = [
     "AssetConfigError",
@@ -20,8 +26,11 @@ __all__ = [
     "InvalidProfileError",
     "LegalChunkingError",
     "ParsedReference",
+    "ReferenceAnalysis",
+    "ReferenceOccurrence",
     "PdfDependencyError",
     "Section",
+    "analyze_references",
     "assemble_sections",
     "chunk_pdf",
     "chunk_text",

@@ -86,10 +86,12 @@ jobs:
           for name in ('pymupdf', 'fitz', 'pymupdf4llm'):
               assert importlib.util.find_spec(name) is None, name
           PY
-      - name: Test installed text contracts outside checkout
+      - name: Test installed text and reference contracts outside checkout
         working-directory: ${{ runner.temp }}
         run: >-
           python -m pytest "$GITHUB_WORKSPACE/tests/test_quality_contracts.py"
+          "$GITHUB_WORKSPACE/tests/test_references.py"
+          "$GITHUB_WORKSPACE/tests/test_reference_occurrences.py"
           -k 'not noisy_native_pdf' -q -ra
       - name: Check installed console entrypoint
         working-directory: ${{ runner.temp }}
