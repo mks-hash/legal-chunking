@@ -75,7 +75,26 @@ assets and absence of private .develop material. Install the wheel into a clean
 environment, exercise text/reference APIs without PDF extras, then PDF support
 with the extra. Test CLI from that installed artifact. Record versions and checks.
 Existing dist files or historical readiness notes are not current evidence.
-There is currently no checked-in CI workflow; local checks are not a CI claim.
+## Continuous integration
+
+[Python validation](../.github/workflows/python-validation.yml) runs on PRs targeting
+`main`, pushes to `main`, and manual dispatch with Python 3.14 on Ubuntu.
+
+- **Tests and Ruff:** installs the dev extra, runs lint/format and pytest with `-ra`
+  so missing local PDFs/traineddata are reported as skips. Synthetic native/layout
+  PDF checks run; CI does not download the private corpus or OCR models.
+- **Installed core and distribution:** builds wheel/sdist, checks runtime assets
+  and private-material exclusion, installs the wheel without extras, then runs
+  text quality contracts and the console entrypoint outside the checkout. The one
+  synthetic native PDF quality test is excluded only from this core job and runs
+  in the dev job. This also checks that PDF packages are absent.
+
+These checks do not certify real-document fidelity or installed-wheel OCR behavior;
+local release evidence remains necessary. Actions are pinned to official release
+commit SHAs, use read-only repository permissions and do not persist credentials.
+The stable job names above can be selected as required checks in the `main` ruleset
+after GitHub has observed a successful run. Adding this workflow does not itself
+change ruleset requirements or publish a package.
 
 ## GitHub workflow
 
