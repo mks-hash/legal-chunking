@@ -1,6 +1,6 @@
 # Reviewed quality fixtures
 
-These ten fixtures are original synthetic texts written for this repository,
+These eleven fixtures are original synthetic texts written for this repository,
 covered by its Apache-2.0 license. They are not quotations from statutes or
 representations of current law. Numbering and forms illustrate engine contracts.
 
@@ -13,6 +13,7 @@ checked relationally in tests rather than frozen as version-independent hashes.
 | Fixture | Source-backed expectation |
 | --- | --- |
 | `generic` | Two explicit sibling articles; empty root |
+| `ru_compound_article` | Raised multi-digit suffix with internal hyphen; exact article/chunk number |
 | `ru_statute` | Decimal chapter/article identifiers; body points stay in article |
 | `ru_guidance` | Approval directives stay in preamble; body points 1 and 2 |
 | `eu_statute` | Chapter ownership; numbered paragraphs stay with article |

@@ -6,7 +6,7 @@
       "fields": {
         "article": {
           "family": "article_like",
-          "number_pattern": "\\d+(?:\\.\\d+)*",
+          "number_pattern": "\\d+(?:\\.\\d+)*(?:-\\d+)?",
           "required": true,
           "coordinated_list": true,
           "range": true
@@ -35,7 +35,7 @@
       "fields": {
         "article": {
           "family": "article_like",
-          "number_pattern": "\\d+(?:\\.\\d+)*",
+          "number_pattern": "\\d+(?:\\.\\d+)*(?:-\\d+)?",
           "required": true,
           "coordinated_list": true,
           "range": true

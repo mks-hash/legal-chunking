@@ -22,7 +22,7 @@ _SUPERSCRIPT_SUFFIX_RE = re.compile(
     r"(?P<base>\d{1,4})(?P<suffix>" + _SCRIPT_SUFFIX_PATTERN.pattern + r")"
 )
 _STRUCTURED_SUFFIX_RE = re.compile(
-    r"(?P<base>\d{2,4})(?:\((?P<paren>\d{1,2})\)|_(?P<underscore>\d{1,2})|-(?P<hyphen>\d)(?!\d))"
+    r"(?P<base>\d{2,4})(?:\((?P<paren>\d{1,2})\)|_(?P<underscore>\d{1,2}))"
 )
 _WORD_SUPERSCRIPT_FOOTNOTE_RE = re.compile(
     r"(?P<word>[A-Za-zА-Яа-яЁё]+)(?P<footnote>" + _SCRIPT_SUFFIX_PATTERN.pattern + r")"
@@ -40,12 +40,7 @@ def normalize_article_number(value: str | None) -> str | None:
     normalized = normalize_numeric_scripts(value).strip()
     structured_match = _STRUCTURED_SUFFIX_RE.fullmatch(normalized)
     if structured_match:
-        suffix = (
-            structured_match.group("paren")
-            or structured_match.group("underscore")
-            or structured_match.group("hyphen")
-            or ""
-        )
+        suffix = structured_match.group("paren") or structured_match.group("underscore") or ""
         normalized = f"{structured_match.group('base')}.{suffix}"
     return normalized or None
 
@@ -100,7 +95,7 @@ def _normalize_contextual_reference_suffixes(text: str, *, profile: str) -> str:
             profile=profile,
         ):
             return match.group(0)
-        suffix = match.group("paren") or match.group("underscore") or match.group("hyphen") or ""
+        suffix = match.group("paren") or match.group("underscore") or ""
         return f"{match.group('base')}.{suffix}"
 
     if not resolve_profile(profile).normalization_policy.get("structured_suffix_context", False):

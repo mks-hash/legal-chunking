@@ -949,3 +949,27 @@ def test_invalid_guidance_asset_is_not_silently_ignored(monkeypatch) -> None:
     monkeypatch.setattr(guidance_metadata, "resolve_profile", lambda profile: broken)
     with pytest.raises(AssetConfigError):
         extract_guidance_point_metadata("1. Вывод.", point_number="1", profile="ru")
+
+
+def test_native_pdf_compound_raised_article_matches_reference_number(tmp_path: Path) -> None:
+    from legal_chunking import extract_references
+
+    path = tmp_path / "compound-article.pdf"
+    with fitz.open() as pdf:
+        page = pdf.new_page()
+        page.insert_htmlbox(
+            fitz.Rect(50, 50, 550, 300),
+            "<p>Статья 225<sup>16-1</sup>. Порядок несения судебных расходов "
+            "по делу о защите прав и законных интересов группы лиц</p>"
+            "<p>Текст статьи.</p><p>Ссылка: статья 225<sup>16-1</sup> АПК РФ.</p>",
+        )
+        pdf.save(path)
+    original = path.read_bytes()
+    doc = chunk_pdf(path, profile="ru")
+    assert doc.sections[1].metadata.article_number == "225.16-1"
+    assert "Статья 225.16-1." in doc.text
+    assert "защите прав и законных интересов группы лиц" in doc.chunks[0].text
+    refs = extract_references(doc.text, profile="ru")
+    assert refs
+    assert {r.article_number for r in refs} == {"225.16-1"}
+    assert path.read_bytes() == original
