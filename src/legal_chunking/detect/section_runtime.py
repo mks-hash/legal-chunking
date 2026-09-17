@@ -97,6 +97,7 @@ def assemble_sections(
             profile=profile,
             chunk_policy=chunk_policy,
             in_article=any(s.kind == "article" for s in stack),
+            trace=trace,
         )
         if trace is not None:
             trace.emit(
@@ -117,6 +118,8 @@ def assemble_sections(
                 trace.emit(
                     TraceStage.DETECT,
                     "heading_detected",
+                    rule_id="section.heading.accepted",
+                    detector=candidate.heading.detector_kind,
                     kind=candidate.heading.kind,
                     label=candidate.heading.label,
                     offset=candidate.offset,

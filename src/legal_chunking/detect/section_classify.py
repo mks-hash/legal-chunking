@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from legal_chunking.tracing import TraceCollector, TraceStage
+
 from .headings import detect_heading
 from .section_candidates import (
     BlankSectionLineCandidate,
@@ -18,6 +20,7 @@ def classify_section_line(
     profile: str,
     chunk_policy: str,
     in_article: bool = False,
+    trace: TraceCollector | None = None,
 ) -> SectionLineCandidate:
     stripped = (line or "").strip()
     if not stripped:
@@ -26,13 +29,28 @@ def classify_section_line(
             offset=offset,
             rule_id="section.line.blank",
         )
-    heading = detect_heading(stripped, profile=profile, chunk_policy=chunk_policy)
+    heading = detect_heading(
+        stripped, profile=profile, chunk_policy=chunk_policy, trace=trace, offset=offset
+    )
     if (
         heading is not None
         and in_article
         and chunk_policy == "statute"
         and (heading.detector_kind == "numeric_heading" and heading.kind in {"article", "section"})
     ):
+        if trace is not None:
+            trace.emit(
+                TraceStage.DETECT,
+                "heading_candidate_rejected",
+                rule_id="heading.context.article_body_numeric",
+                reason="numeric_subdivision_cannot_replace_article",
+                detector=heading.detector_kind,
+                text=stripped,
+                offset=offset,
+                profile=profile,
+                chunk_policy=chunk_policy,
+                candidate_label=heading.label,
+            )
         heading = None
     if heading is not None:
         return HeadingSectionLineCandidate(

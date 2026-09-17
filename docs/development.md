@@ -25,6 +25,7 @@ behavior. No Docker, frontend, MCP or hosted-service setup is required here.
 | Tests | Main contract |
 | --- | --- |
 | `test_quality_contracts.py` | Independently authored structure/text expectations and offset/identity scenarios |
+| `test_tracing.py` | Actual decision reasons, source planes, output invariance and repeatability |
 | `test_api.py` | API, normalization, hashes, chunk methods, synthetic PDF cleanup, trace and CLI |
 | `test_sections.py`, `test_headings.py` | Hierarchy, candidate admissibility and legal forms |
 | `test_profiles.py` | Manifest, aliases, policy defaults and reference families |

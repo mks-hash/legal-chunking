@@ -50,8 +50,9 @@ can consequently change.
 
 This is a conservative text-context heuristic, not a bounding-box margin contract.
 Unpunctuated body text at a page start can still be ambiguous. Other profile noise,
-running-header and TOC rules remain separate and do not yet have complete deletion
-traces. Use original-source review when cleanup affects difficult documents.
+running-header and TOC rules remain separate. Explicit cleanup/exclusion decisions
+now have [removal traces](tracing.md); normalization and merges remain partially
+instrumented. Use original-source review when cleanup affects difficult documents.
 
 ## Adapter boundaries and reproducibility
 

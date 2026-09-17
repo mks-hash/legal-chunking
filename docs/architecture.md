@@ -68,8 +68,10 @@ does not imply complete jurisdiction coverage or current legal validity.
 `trace=True` adds events from extract, normalize, detect, assemble and chunk
 surfaces where instrumentation exists. CLI `explain` runs the same pipeline.
 Every materialized chunk emits a boundary event with section, method and order.
-Coverage is still partial: not every rejected candidate or deletion has an event, and stage labels do not imply chronologically sorted phases (policy
-selection is emitted before normalization). Trace is runtime evidence, not model
+Matched heading rejection and explicit PDF line/page/front-matter exclusions now
+have rule/reason events with source-plane metadata. Coverage remains partial;
+see [runtime decision traces](tracing.md). Stage labels do not imply chronologically
+sorted phases (policy selection is emitted before normalization). Trace is runtime evidence, not model
 reasoning; events can contain source text and need appropriate handling.
 
 Section offsets refer to the processed text stream, not original PDF coordinates.
