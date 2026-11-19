@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "legal-chunking"
-version = "0.1.0"
+version = "0.2.0"
 description = "Deterministic, structure-aware parsing, chunking, and reference extraction for legal documents."
 readme = "README.md"
 license = "Apache-2.0"
@@ -22,7 +22,7 @@ keywords = [
   "nlp",
 ]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3",

@@ -1,6 +1,6 @@
 # Documentation
 
-These documents describe the current pre-alpha package, not a released v1 contract.
+These documents describe the current alpha package, not a released v1 contract.
 
 - [Architecture](architecture.md): scope, stage ownership and current limitations.
 - [API and result contracts](api.md): exports, inputs, identities and serialization.

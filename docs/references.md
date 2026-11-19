@@ -86,7 +86,7 @@ Source mapping is opt-in to analysis. Legacy normalization/extraction does not
 allocate per-character origin buffers. Maps are local to the call and not cached;
 analysis uses input-size-dependent memory and returns normalized text plus verbatim
 locator snippets. No public resource budget or complete performance guarantee exists.
-Use `dataclasses.asdict` for payloads; these are pre-alpha dataclasses, not a frozen
+Use `dataclasses.asdict` for payloads; these are alpha dataclasses, not a frozen
 versioned wire schema.
 
 ## Compatibility correction

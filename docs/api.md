@@ -1,6 +1,6 @@
 # API and result contracts
 
-The package version is `0.1.0` in `pyproject.toml`; this is pre-alpha. The current
+The package version is `0.2.0` in `pyproject.toml`; this is alpha. The current
 API and serialization are documented behavior, not a frozen v1 schema.
 
 ## Public package exports
