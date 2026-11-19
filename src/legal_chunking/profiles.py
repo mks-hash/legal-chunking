@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 from legal_chunking.errors import AssetConfigError, InvalidProfileError
@@ -126,6 +128,15 @@ def resolve_doc_family(profile: str, text: str) -> ReferenceDocFamily | None:
     return max(hits, key=lambda hit: (hit.alias_length, -hit.start)).family
 
 
+@lru_cache(maxsize=8)
+def _max_doc_family_alias_length(profile: str) -> int:
+    resolved = resolve_profile(profile)
+    return max(
+        (len(alias) for family in resolved.doc_families for alias in family.aliases),
+        default=0,
+    )
+
+
 def resolve_doc_family_near(
     profile: str,
     text_or_hits: str | tuple[_DocFamilyAliasHit, ...],
@@ -143,15 +154,43 @@ def resolve_doc_family_near(
         hits = find_doc_family_alias_hits(profile, normalized)
     if not hits:
         return None
-    best_hit = min(
-        hits,
-        key=lambda hit: (
-            _alias_distance(anchor_start, anchor_end, hit.start, hit.end),
-            -hit.alias_length,
-            hit.start,
-        ),
-    )
-    return best_hit.family
+    if len(hits) <= 8:
+        best_hit = min(
+            hits,
+            key=lambda hit: (
+                _alias_distance(anchor_start, anchor_end, hit.start, hit.end),
+                -hit.alias_length,
+                hit.start,
+            ),
+        )
+        return best_hit.family
+
+    max_alias_len = _max_doc_family_alias_length(profile)
+    pos = bisect_left(hits, anchor_end, key=lambda hit: hit.start)
+    best_hit: _DocFamilyAliasHit | None = None
+    best_key: tuple[int, int, int] | None = None
+
+    for idx in range(pos, len(hits)):
+        hit = hits[idx]
+        dist = hit.start - anchor_end
+        if best_key is not None and dist > best_key[0]:
+            break
+        key = (dist, -hit.alias_length, hit.start)
+        if best_key is None or key < best_key:
+            best_key = key
+            best_hit = hit
+
+    for idx in range(pos - 1, -1, -1):
+        hit = hits[idx]
+        if best_key is not None and anchor_start - hit.start - max_alias_len > best_key[0]:
+            break
+        dist = _alias_distance(anchor_start, anchor_end, hit.start, hit.end)
+        key = (dist, -hit.alias_length, hit.start)
+        if best_key is None or key < best_key:
+            best_key = key
+            best_hit = hit
+
+    return best_hit.family if best_hit is not None else None
 
 
 def find_doc_family_alias_hits(
@@ -190,6 +229,7 @@ def find_doc_family_alias_hits(
                     )
                 )
                 offset = normalized_text.find(alias, offset + 1)
+    hits.sort(key=lambda hit: (hit.start, -hit.alias_length))
     return tuple(hits)
 
 
