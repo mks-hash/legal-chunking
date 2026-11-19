@@ -1125,3 +1125,38 @@ def test_cli_pages_json_supports_chunk_and_review_with_page_numbers(
     bad_file.write_text(json.dumps({"page_number": 1, "text": "not a list"}), encoding="utf-8")
     with pytest.raises(ValueError):
         main(["chunk", "--pages-json", str(bad_file)])
+
+
+def test_cli_references_command_emits_source_anchored_occurrences(
+    tmp_path: Path, capsys: object
+) -> None:
+    import json
+
+    from legal_chunking.cli import main
+
+    assert (
+        main(
+            [
+                "references",
+                "--text",
+                "пункты 1 и 3 статьи 450 ГК РФ",
+                "--profile",
+                "ru",
+                "--doc-family",
+                "gk_rf",
+            ]
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)  # type: ignore[attr-defined]
+    assert payload["profile"] == "ru"
+    assert len(payload["occurrences"]) == 1
+    occ = payload["occurrences"][0]
+    assert (occ["start_offset"], occ["end_offset"]) == (0, 23)
+    assert [ref["paragraph_number"] for ref in occ["references"]] == ["1", "3"]
+
+    source_file = tmp_path / "note.txt"
+    source_file.write_text("See Article 6(1)(a) GDPR.", encoding="utf-8")
+    assert main(["references", "--path", str(source_file), "--profile", "eu"]) == 0
+    eu_payload = json.loads(capsys.readouterr().out)  # type: ignore[attr-defined]
+    assert eu_payload["occurrences"][0]["references"][0]["doc_family"] == "gdpr"
