@@ -1,7 +1,7 @@
 # Strategic roadmap
 
 This is a sequence of outcomes, not a v1.1 release promise. The package is currently
-alpha (`0.2.0`). Legal Chunking's focus is extraction-agnostic, deterministic,
+alpha (`0.3.0`). Legal Chunking's focus is extraction-agnostic, deterministic,
 explainable document structuring; broader jurisdiction coverage follows engine
 correctness and evidence, rather than driving ad hoc rules.
 
