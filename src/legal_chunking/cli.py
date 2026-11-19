@@ -8,7 +8,8 @@ import re
 from dataclasses import asdict
 from pathlib import Path
 
-from legal_chunking.api import chunk_pdf, chunk_text
+from legal_chunking.api import chunk_pages, chunk_pdf, chunk_text
+from legal_chunking.extract.models import ExtractedPage
 from legal_chunking.models import Document
 
 
@@ -21,6 +22,10 @@ def build_parser() -> argparse.ArgumentParser:
         input_group = command_parser.add_mutually_exclusive_group(required=True)
         input_group.add_argument("--text", help="Raw text input.")
         input_group.add_argument("--path", help="Path to a text or PDF file.")
+        input_group.add_argument(
+            "--pages-json",
+            help="Path to a JSON file containing [{'page_number': int, 'text': str}, ...].",
+        )
         command_parser.add_argument("--profile", default="generic", help="Chunking profile.")
         command_parser.add_argument("--doc-kind", default=None, help="Optional document kind.")
         command_parser.add_argument(
@@ -50,10 +55,25 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _load_pages_json(source: Path) -> list[ExtractedPage]:
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        raise ValueError("Pages JSON must be a list of {'page_number', 'text'} objects.")
+    pages: list[ExtractedPage] = []
+    for item in payload:
+        if not isinstance(item, dict) or "page_number" not in item or "text" not in item:
+            raise ValueError("Each page entry must be an object with 'page_number' and 'text'.")
+        if not isinstance(item["text"], str):
+            raise ValueError("Each page entry 'text' must be a string.")
+        pages.append(ExtractedPage(page_number=item["page_number"], text=item["text"]))
+    return pages
+
+
 def _load_document(
     *,
     text: str | None,
     path: str | None,
+    pages_json: str | None = None,
     profile: str,
     doc_kind: str | None,
     trace: bool,
@@ -67,8 +87,20 @@ def _load_document(
             raise ValueError("Extraction options require a PDF path")
         return chunk_text(text, profile=profile, doc_kind=doc_kind, trace=trace)
 
+    if pages_json is not None:
+        if backend != "pymupdf" or ocr != "off":
+            raise ValueError("Extraction options require a PDF path")
+        source = Path(pages_json)
+        return chunk_pages(
+            _load_pages_json(source),
+            profile=profile,
+            source_name=source.name,
+            doc_kind=doc_kind,
+            trace=trace,
+        )
+
     if path is None:
-        raise ValueError("Either --text or --path must be provided.")
+        raise ValueError("One of --text, --path, or --pages-json must be provided.")
 
     source = Path(path)
     if source.suffix.lower() == ".pdf":
@@ -155,11 +187,13 @@ def _render_review(document: Document, *, limit: int, max_chars: int) -> str:
 
     lines.extend(["", "Chunks"])
     for chunk in document.chunks[:limit]:
+        page_suffix = f" | page={chunk.page}" if chunk.page is not None else ""
         lines.extend(
             [
                 (
                     f"[{chunk.order}] {chunk.section_title or '-'}"
                     f" | method={chunk.chunk_method}"
+                    f"{page_suffix}"
                     f" | chunk_id={chunk.chunk_id}"
                 ),
                 f"  preview: {_preview(chunk.text, max_chars=max_chars)}",
@@ -186,6 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     document = _load_document(
         text=args.text,
         path=args.path,
+        pages_json=args.pages_json,
         profile=args.profile,
         doc_kind=args.doc_kind,
         trace=args.command == "explain",
