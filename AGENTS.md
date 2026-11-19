@@ -47,7 +47,7 @@ Keep related docs, examples, assets and skills aligned with changed contracts.
 Remove confirmed obsolete material rather than maintaining competing instructions.
 Avoid unrelated refactors and broad unsafe autofixes.
 
-Use the installed Python 3.14+ environment and commands in docs/development.md.
+Use the installed Python 3.12+ environment and commands in docs/development.md.
 Run focused tests during implementation; run the full suite for structural,
 normalization, asset or identity changes. Run Ruff lint and formatting checks for
 Python changes. Report failures, missing tools and skipped PDF checks explicitly.

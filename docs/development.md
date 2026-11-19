@@ -2,7 +2,7 @@
 
 ## Environment
 
-Use Python 3.14 or newer, as required by pyproject.toml:
+Use Python 3.12 or newer, as required by pyproject.toml:
 
 ```bash
 python -m venv .venv
@@ -80,7 +80,7 @@ Existing dist files or historical readiness notes are not current evidence.
 ## Continuous integration
 
 [Python validation](../.github/workflows/python-validation.yml) runs on PRs targeting
-`main`, pushes to `main`, and manual dispatch with Python 3.14 on Ubuntu.
+`main`, pushes to `main`, and manual dispatch with Python 3.12–3.14 on Ubuntu.
 
 - **Tests and Ruff:** installs the dev extra, runs lint/format and pytest with `-ra`
   so missing local PDFs/traineddata are reported as skips. Synthetic native/layout
