@@ -10,24 +10,34 @@ from pathlib import Path
 
 from legal_chunking.api import chunk_pages, chunk_pdf, chunk_text
 from legal_chunking.extract.models import ExtractedPage
+from legal_chunking.extract.pdf import extract_pdf_text
 from legal_chunking.models import Document
+from legal_chunking.reference_parser import analyze_references
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="legal-chunking")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for command in ("chunk", "structure", "explain", "review"):
+    for command in ("chunk", "structure", "explain", "review", "references"):
         command_parser = subparsers.add_parser(command)
         input_group = command_parser.add_mutually_exclusive_group(required=True)
         input_group.add_argument("--text", help="Raw text input.")
         input_group.add_argument("--path", help="Path to a text or PDF file.")
-        input_group.add_argument(
-            "--pages-json",
-            help="Path to a JSON file containing [{'page_number': int, 'text': str}, ...].",
-        )
+        if command != "references":
+            input_group.add_argument(
+                "--pages-json",
+                help="Path to a JSON file containing [{'page_number': int, 'text': str}, ...].",
+            )
         command_parser.add_argument("--profile", default="generic", help="Chunking profile.")
-        command_parser.add_argument("--doc-kind", default=None, help="Optional document kind.")
+        if command == "references":
+            command_parser.add_argument(
+                "--doc-family",
+                default=None,
+                help="Optional manifest document family filter.",
+            )
+        else:
+            command_parser.add_argument("--doc-kind", default=None, help="Optional document kind.")
         command_parser.add_argument(
             "--output",
             default=None,
@@ -214,9 +224,56 @@ def _emit_output(content: str, *, output: str | None) -> None:
     target.write_text(content + "\n", encoding="utf-8")
 
 
+def _load_reference_text(
+    *,
+    text: str | None,
+    path: str | None,
+    profile: str,
+    backend: str = "pymupdf",
+    ocr: str = "off",
+    ocr_language: str = "eng",
+    ocr_dpi: int = 300,
+) -> str:
+    if text is not None:
+        if backend != "pymupdf" or ocr != "off":
+            raise ValueError("Extraction options require a PDF path")
+        return text
+    if path is None:
+        raise ValueError("Either --text or --path must be provided.")
+    source = Path(path)
+    if source.suffix.lower() == ".pdf":
+        return extract_pdf_text(
+            source,
+            profile=profile,
+            backend=backend,
+            ocr=ocr,
+            ocr_language=ocr_language,
+            ocr_dpi=ocr_dpi,
+        )
+    if backend != "pymupdf" or ocr != "off":
+        raise ValueError("Extraction options require a PDF path")
+    return source.read_text(encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command == "references":
+        raw_text = _load_reference_text(
+            text=args.text,
+            path=args.path,
+            profile=args.profile,
+            backend=args.backend,
+            ocr=args.ocr,
+            ocr_language=args.ocr_language,
+            ocr_dpi=args.ocr_dpi,
+        )
+        analysis = analyze_references(raw_text, profile=args.profile, doc_family=args.doc_family)
+        _emit_output(
+            json.dumps(asdict(analysis), ensure_ascii=False, indent=2),
+            output=args.output,
+        )
+        return 0
     document = _load_document(
         text=args.text,
         path=args.path,

@@ -83,10 +83,12 @@ legal-chunking structure --path rulebook.txt --profile ae --doc-kind primary_leg
 legal-chunking explain --path rulebook.pdf --profile ae --doc-kind primary_legislation
 legal-chunking review --path gdpr.pdf --profile eu --limit 12 --max-chars 220
 legal-chunking review --path rulebook.pdf --profile ae --output snapshots/review.txt
+legal-chunking references --text 'пункты 1 и 3 статьи 450 ГК РФ' --profile ru
 ```
 
 `chunk` emits JSON chunk records including text; `structure` emits sections;
-`explain` emits runtime trace; `review` emits human-readable previews (including `page=` when page provenance is available).
+`explain` emits runtime trace; `review` emits human-readable previews (including `page=` when page provenance is available);
+`references` emits source-anchored `ReferenceAnalysis` JSON (with optional `--doc-family`).
 All commands accept `--text`, `--path` (text/PDF), or `--pages-json` (`[{"page_number": 1, "text": "..."}]`) and `--output`. PDF inputs also accept `--backend`, `--ocr`,
 `--ocr-language` and `--ocr-dpi`; see [extraction](docs/extraction.md). The JSON format is not a frozen/versioned schema.
 
