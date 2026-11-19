@@ -65,6 +65,7 @@ jobs:
           sdist, = Path('dist').glob('*.tar.gz')
           with zipfile.ZipFile(wheel) as archive:
               names = archive.namelist()
+              assert 'legal_chunking/py.typed' in names
               assert 'legal_chunking/extract/pymupdf4llm_worker.py' in names
               assert any('/assets/normalization_policy/' in name for name in names)
               assert not any('.develop' in Path(name).parts for name in names)
