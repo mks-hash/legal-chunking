@@ -1090,3 +1090,38 @@ def test_chunk_pdf_populates_chunk_page_across_multipage_pdf(tmp_path: Path) -> 
     assert doc.chunks[0].page == 1
     assert doc.chunks[1].metadata.article_number == "2"
     assert doc.chunks[1].page == 2
+
+
+def test_cli_pages_json_supports_chunk_and_review_with_page_numbers(
+    tmp_path: Path, capsys: object
+) -> None:
+    import json
+
+    import pytest
+
+    from legal_chunking.cli import main
+
+    pages_file = tmp_path / "pages.json"
+    pages_file.write_text(
+        json.dumps(
+            [
+                {"page_number": 2, "text": "Article 1. Scope\nApplies to all covered contracts."},
+                {"page_number": 5, "text": "Article 2. Remedies\nDamages are available."},
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert main(["chunk", "--pages-json", str(pages_file), "--profile", "generic"]) == 0
+    payload = json.loads(capsys.readouterr().out)  # type: ignore[attr-defined]
+    assert [chunk["page"] for chunk in payload["chunks"]] == [2, 5]
+
+    assert main(["review", "--pages-json", str(pages_file), "--profile", "generic"]) == 0
+    review_text = capsys.readouterr().out  # type: ignore[attr-defined]
+    assert "| page=2 |" in review_text
+    assert "| page=5 |" in review_text
+
+    bad_file = tmp_path / "bad.json"
+    bad_file.write_text(json.dumps({"page_number": 1, "text": "not a list"}), encoding="utf-8")
+    with pytest.raises(ValueError):
+        main(["chunk", "--pages-json", str(bad_file)])
