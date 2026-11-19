@@ -7,8 +7,8 @@ API and serialization are documented behavior, not a frozen v1 schema.
 
 `legal_chunking.__all__` exports:
 
-- `chunk_text`, `chunk_pdf`, `assemble_sections`, `extract_references`, `analyze_references`;
-- `Document`, `Section`, `Chunk`, `ParsedReference`, `ReferenceAnalysis`, `ReferenceOccurrence`;
+- `chunk_text`, `chunk_pages`, `chunk_pdf`, `assemble_sections`, `extract_references`, `analyze_references`;
+- `Document`, `Section`, `Chunk`, `ExtractedPage`, `ParsedReference`, `ReferenceAnalysis`, `ReferenceOccurrence`;
 - `LegalChunkingError`, `AssetConfigError`, `InvalidProfileError`,
   `PdfDependencyError`, `ExtractionError`.
 
@@ -28,9 +28,14 @@ references = extract_references("пункт 3 статьи 450 ГК РФ", profi
 ```
 
 `chunk_text(text, profile="generic", source_name="<memory>", doc_kind=None,
-trace=False)` returns Document. `chunk_pdf(path, profile="generic", doc_kind=None,
-trace=False, *, backend="pymupdf", ocr="off", ocr_language="eng", ocr_dpi=300)` returns the same model and uses the file basename as
-source_name.
+trace=False)` returns Document with `Chunk.page = None`. `chunk_pages(pages,
+profile="generic", source_name="<memory>", doc_kind=None, trace=False)` accepts
+an extractor-neutral sequence of `ExtractedPage(page_number, text)` (1-based
+page numbers) and populates `Chunk.page` with each chunk's starting page without
+altering `chunk_id` or `semantic_hash`. `chunk_pdf(path, profile="generic",
+doc_kind=None, trace=False, *, backend="pymupdf", ocr="off",
+ocr_language="eng", ocr_dpi=300)` returns the same model through the same page
+pipeline, populating `Chunk.page` and using the file basename as source_name.
 
 `assemble_sections(text, *, profile="generic", chunk_policy="default",
 doc_kind=None, source_name="<memory>", trace=None)` returns sections. This lower

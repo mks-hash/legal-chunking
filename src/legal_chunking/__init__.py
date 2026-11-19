@@ -1,6 +1,6 @@
 """Public package surface for legal-chunking."""
 
-from legal_chunking.api import chunk_pdf, chunk_text
+from legal_chunking.api import chunk_pages, chunk_pdf, chunk_text
 from legal_chunking.detect.sections import assemble_sections
 from legal_chunking.errors import (
     AssetConfigError,
@@ -9,6 +9,7 @@ from legal_chunking.errors import (
     LegalChunkingError,
     PdfDependencyError,
 )
+from legal_chunking.extract.models import ExtractedPage
 from legal_chunking.models import Chunk, Document, Section
 from legal_chunking.reference_parser import (
     ParsedReference,
@@ -22,6 +23,7 @@ __all__ = [
     "AssetConfigError",
     "Chunk",
     "Document",
+    "ExtractedPage",
     "ExtractionError",
     "InvalidProfileError",
     "LegalChunkingError",
@@ -32,6 +34,7 @@ __all__ = [
     "Section",
     "analyze_references",
     "assemble_sections",
+    "chunk_pages",
     "chunk_pdf",
     "chunk_text",
     "extract_references",

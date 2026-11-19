@@ -76,8 +76,9 @@ sorted phases (policy selection is emitted before normalization). Trace is runti
 reasoning; events can contain source text and need appropriate handling.
 
 Section offsets refer to the processed text stream, not original PDF coordinates.
-`Chunk.page` currently defaults to None; there is no end-to-end page/bounding-box
-provenance contract. PDF cleanup can remove source material. Scanned-image OCR is optional and requires traineddata; recognition accuracy,
+`Chunk.page` records the starting page number when called through `chunk_pages`
+or `chunk_pdf` (and remains `None` for plain `chunk_text`); bounding-box and
+end-page provenance are not part of the current contract. PDF cleanup can remove source material. Scanned-image OCR is optional and requires traineddata; recognition accuracy,
 faithful table reconstruction and arbitrary layout recovery are not guaranteed.
 The core cannot recover information discarded by an upstream extractor.
 

@@ -20,8 +20,8 @@ and separately installed Tesseract traineddata.
 Enabled profiles: `generic`, `ru`, `us`, `eu`, `ae`. They support tested document
 forms, not every legal text in a jurisdiction. Current capabilities include heading
 hierarchy, guidance points, rule blocks, definition entries, policy-aware splitting,
-content hashes and optional runtime trace. Trace coverage is partial; faithful table reconstruction, OCR accuracy and
-end-to-end PDF page provenance are not guaranteed.
+starting-page provenance via `chunk_pages` / `chunk_pdf`, content hashes and optional runtime trace. Trace coverage is partial; faithful table reconstruction, OCR accuracy and
+bounding-box/coordinate provenance are not guaranteed.
 
 Retrieval, ranking, embeddings, vector stores, LLM reasoning, web services and
 product workflows are outside the scope of this engine.

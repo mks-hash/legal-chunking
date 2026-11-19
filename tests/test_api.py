@@ -1029,3 +1029,64 @@ def test_cached_normalization_rules_are_immutable() -> None:
     rules = repair_patterns("ru")
     with pytest.raises(TypeError):
         rules["injected"] = rules["article_bracket_footnote_re"]  # type: ignore[index]
+
+
+def test_chunk_pages_tracks_starting_page_across_sections_and_splits() -> None:
+    from legal_chunking import ExtractedPage, chunk_pages
+
+    long_para_a = "First page body sentence. " * 60
+    long_para_b = "Second page body sentence. " * 60
+    pages = [
+        ExtractedPage(page_number=1, text="   "),
+        ExtractedPage(page_number=3, text=f"Article 1. Scope\n{long_para_a}"),
+        ExtractedPage(page_number=7, text=f"{long_para_b}\n\nArticle 2. Remedies\nDamages apply."),
+    ]
+
+    doc = chunk_pages(pages, profile="generic", source_name="multi.txt")
+    assert doc.chunks
+    article_1_chunks = [c for c in doc.chunks if c.metadata.article_number == "1"]
+    article_2_chunks = [c for c in doc.chunks if c.metadata.article_number == "2"]
+    assert len(article_1_chunks) >= 2
+    assert article_1_chunks[0].page == 3
+    assert article_1_chunks[-1].page == 7
+    assert len(article_2_chunks) == 1
+    assert article_2_chunks[0].page == 7
+
+    plain_doc = chunk_text(doc.text, profile="generic", source_name="multi.txt")
+    assert all(c.page is None for c in plain_doc.chunks)
+    assert [c.chunk_id for c in doc.chunks] == [c.chunk_id for c in plain_doc.chunks]
+
+
+def test_chunk_pages_validates_inputs_and_handles_empty_pages() -> None:
+    import pytest
+
+    from legal_chunking import ExtractedPage, chunk_pages
+
+    empty_doc = chunk_pages([ExtractedPage(page_number=1, text="  \n  ")], profile="generic")
+    assert empty_doc.text == ""
+    assert empty_doc.sections == []
+    assert empty_doc.chunks == []
+
+    with pytest.raises(TypeError):
+        chunk_pages(["not a page"])  # type: ignore[list-item]
+    with pytest.raises(ValueError):
+        chunk_pages([ExtractedPage(page_number=0, text="Article 1. Scope")])
+    with pytest.raises(ValueError):
+        chunk_pages([ExtractedPage(page_number=True, text="Article 1. Scope")])  # type: ignore[arg-type]
+
+
+def test_chunk_pdf_populates_chunk_page_across_multipage_pdf(tmp_path: Path) -> None:
+    path = tmp_path / "multipage.pdf"
+    with fitz.open() as pdf:
+        p1 = pdf.new_page()
+        p1.insert_text((50, 72), "Article 1. Scope\nApplies to all covered contracts.")
+        p2 = pdf.new_page()
+        p2.insert_text((50, 72), "Article 2. Remedies\nDamages are available on breach.")
+        pdf.save(path)
+
+    doc = chunk_pdf(path, profile="generic")
+    assert len(doc.chunks) == 2
+    assert doc.chunks[0].metadata.article_number == "1"
+    assert doc.chunks[0].page == 1
+    assert doc.chunks[1].metadata.article_number == "2"
+    assert doc.chunks[1].page == 2
