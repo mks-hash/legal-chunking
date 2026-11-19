@@ -1,5 +1,9 @@
 # legal-chunking
 
+[![Python validation](https://github.com/mks-hash/legal-chunking/actions/workflows/python-validation.yml/badge.svg)](https://github.com/mks-hash/legal-chunking/actions/workflows/python-validation.yml)
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
+![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)
+
 Legal Chunking is an extraction-agnostic, deterministic and explainable
 document-structuring engine for legal texts.
 
@@ -33,15 +37,18 @@ pip install 'legal-chunking[ocr]'
 ```
 
 ```python
-from legal_chunking import chunk_text, chunk_pdf, extract_references
+from legal_chunking import analyze_references, chunk_pdf, chunk_text, extract_references
 
 # Text may come from any upstream extraction system.
 document = chunk_text(
-    "Article 1. General provisions\nThe borrower shall comply.",
-    profile="generic",
-    source_name="contract.txt",
+    "Article 1. Scope\n1. This Regulation applies to processing.\n"
+    "2. See Article 6(1)(a) for lawful basis.",
+    profile="eu",
+    source_name="regulation.txt",
     trace=True,
 )
+# -> Chunk(order=1, chunk_method="statute_unit", section_type="article",
+#          metadata=LegalMetadata(article_number="1", ...))
 
 pdf_document = chunk_pdf(
     "rulebook.pdf", profile="ae", doc_kind="primary_legislation"
@@ -49,6 +56,13 @@ pdf_document = chunk_pdf(
 # An explicit OCR path, after installing the ocr extra and traineddata:
 # scan_document = chunk_pdf("scan.pdf", backend="pymupdf4llm", ocr="auto",
 #                           ocr_language="rus+eng")
+
+analysis = analyze_references("пункты 1 и 3 статьи 450 ГК РФ", profile="ru")
+# -> ReferenceOccurrence(start_offset=0, end_offset=23, raw="пункты 1 и 3 статьи 450",
+#      references=(
+#        ParsedReference(scheme="ru_article", article_number="450", paragraph_number="1", doc_family="gk_rf"),
+#        ParsedReference(scheme="ru_article", article_number="450", paragraph_number="3", doc_family="gk_rf"),
+#      ))
 references = extract_references("пункт 3 статьи 450 ГК РФ", profile="ru")
 ```
 
