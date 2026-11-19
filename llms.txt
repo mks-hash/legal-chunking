@@ -1,0 +1,49 @@
+# legal-chunking
+
+> Deterministic, extraction-agnostic, zero-dependency Python 3.12+ engine for legal document structuring, policy-aware chunking, starting-page provenance, and structured citation analysis.
+
+## Scope and non-goals
+
+- Core text and reference APIs require zero runtime dependencies.
+- Optional extras: `legal-chunking[pdf]` (PyMuPDF) and `legal-chunking[ocr]` (PyMuPDF4LLM + externally supplied Tesseract traineddata).
+- Out of scope: retrieval, ranking, embeddings, vector databases, LLMs, web services, and authoritative legal resolution.
+
+## Public API (`legal_chunking`)
+
+- `chunk_text(text, profile="generic", source_name="<memory>", doc_kind=None, trace=False) -> Document`
+  - Plain text input; `Chunk.page` is `None`.
+- `chunk_pages(pages: Sequence[ExtractedPage], profile="generic", source_name="<memory>", doc_kind=None, trace=False) -> Document`
+  - Extractor-neutral page input (`ExtractedPage(page_number: int, text: str)`, 1-based `page_number >= 1`); populates `Chunk.page` with each chunk's starting page without altering `chunk_id` or `semantic_hash`.
+  - Recommended entry point when integrating external extractors (Docling, Unstructured, Azure DI, custom OCR).
+- `chunk_pdf(path, profile="generic", doc_kind=None, trace=False, *, backend="pymupdf", ocr="off", ocr_language="eng", ocr_dpi=300) -> Document`
+  - Optional PDF adapter routing through `extract_pdf_pages` and `chunk_pages`; populates `Chunk.page`.
+- `assemble_sections(text, *, profile="generic", chunk_policy="default", doc_kind=None, source_name="<memory>", trace=None) -> list[Section]`
+  - Lower-level section assembly on already-normalized text.
+- `extract_references(text, *, profile="generic", doc_family=None) -> list[ParsedReference]`
+  - Deduplicated structured citation extraction.
+- `analyze_references(text, *, profile="generic", doc_family=None) -> ReferenceAnalysis`
+  - Ordered, source-anchored `ReferenceOccurrence` spans (original and normalized offsets) preserving repeated and coordinated citations.
+- Models: `Document`, `Section`, `Chunk`, `ExtractedPage`, `ParsedReference`, `ReferenceAnalysis`, `ReferenceOccurrence`.
+- Errors: `LegalChunkingError`, `AssetConfigError`, `InvalidProfileError`, `PdfDependencyError`, `ExtractionError`.
+
+## Profiles and policies
+
+- Enabled profiles: `generic`, `ru`, `us`, `eu`, `ae`.
+- Policies: `default`, `statute`, `guidance`, `case_law` (selected via profile assets and optional `doc_kind`).
+- Determinism: identical inputs, arguments, packaged assets, and runtime versions produce identical structure, `semantic_hash`, and `chunk_id`.
+
+## Concurrency and async integration
+
+- The engine is synchronous, CPU-bound, and thread-safe (immutable cached rules/patterns; `pymupdf4llm` runs in an isolated subprocess worker).
+- Do not expect `async` APIs inside the library. In `asyncio` services (e.g. FastAPI), offload calls with `await asyncio.to_thread(chunk_text, ...)` or use `ProcessPoolExecutor` for CPU-bound batches.
+
+## Documentation index
+
+- [README.md](README.md): quick start, install extras, CLI (`chunk`, `structure`, `explain`, `review`).
+- [docs/api.md](docs/api.md): exports, signatures, identities, hashing, and error contracts.
+- [docs/architecture.md](docs/architecture.md): stage ownership, structure rules, and limitations.
+- [docs/references.md](docs/references.md): source-anchored citation occurrences and compatibility.
+- [docs/extraction.md](docs/extraction.md): PDF backends, OCR configuration, and reproducibility.
+- [docs/tracing.md](docs/tracing.md): runtime decision traces and `explain` mode.
+- [docs/quality.md](docs/quality.md): reviewed public fixtures and evidence levels.
+- [docs/development.md](docs/development.md): validation commands, test ownership, and CI.
