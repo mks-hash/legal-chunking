@@ -6,6 +6,7 @@ import re
 from bisect import bisect_left
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from itertools import product
 
 from legal_chunking.errors import AssetConfigError
@@ -302,18 +303,19 @@ def _asset_reference_patterns(
     return patterns
 
 
+@lru_cache(maxsize=32)
 def _jurisdiction_scheme_patterns(
     profile: str,
     *,
     doc_family: str | None = None,
-) -> tuple[list[_PatternSpec], list[_PatternSpec]]:
+) -> tuple[tuple[_PatternSpec, ...], tuple[_PatternSpec, ...]]:
     code = resolve_profile(profile).code
     scoped_patterns = _compile_scoped_patterns_from_asset(code)
     generic_patterns = _asset_generic_patterns_for_profile(code)
     generic_patterns.extend(
         _asset_reference_patterns(code, doc_family=doc_family, include_global=not bool(doc_family))
     )
-    return scoped_patterns, generic_patterns
+    return tuple(scoped_patterns), tuple(generic_patterns)
 
 
 def _resolve_match_doc_family(

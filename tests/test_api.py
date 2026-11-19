@@ -973,3 +973,59 @@ def test_native_pdf_compound_raised_article_matches_reference_number(tmp_path: P
     assert refs
     assert {r.article_number for r in refs} == {"225.16-1"}
     assert path.read_bytes() == original
+
+
+def test_concurrent_chunk_text_and_analyze_references_are_deterministic() -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from legal_chunking import analyze_references
+
+    cases = [
+        ("generic", "Article 1. Scope\nApplies to all parties.", "See Article 1."),
+        (
+            "ru",
+            "Статья 450. Основания изменения договора\n1. Текст.",
+            "пункты 1 и 3 статьи 450 ГК РФ",
+        ),
+        ("us", "Rule 1. Scope and Purpose\n(a) Civil actions.", "See Rule 12(b)(6) FRCP."),
+        ("eu", "Article 6. Lawfulness\n1. Processing is lawful.", "Article 6(1)(a) GDPR"),
+        ("ae", "1.1.1 Rule\nA firm must comply.", "Rule 1.1.1"),
+    ]
+    expected_docs = {
+        profile: chunk_text(text, profile=profile, source_name=f"{profile}.txt")
+        for profile, text, _ in cases
+    }
+    expected_refs = {
+        profile: analyze_references(ref_text, profile=profile) for profile, _, ref_text in cases
+    }
+
+    def run_case(case: tuple[str, str, str]) -> tuple[str, object, object]:
+        profile, text, ref_text = case
+        return (
+            profile,
+            chunk_text(text, profile=profile, source_name=f"{profile}.txt"),
+            analyze_references(ref_text, profile=profile),
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(run_case, cases * 6))
+
+    for profile, doc, refs in results:
+        assert doc == expected_docs[profile]
+        assert refs == expected_refs[profile]
+
+
+def test_cached_normalization_rules_are_immutable() -> None:
+    import pytest
+
+    from legal_chunking.legal_normalization import numeric_script_rules, repair_patterns
+
+    _, superscript, subscript = numeric_script_rules()
+    with pytest.raises(TypeError):
+        superscript[0] = 1  # type: ignore[index]
+    with pytest.raises(TypeError):
+        subscript[0] = 1  # type: ignore[index]
+
+    rules = repair_patterns("ru")
+    with pytest.raises(TypeError):
+        rules["injected"] = rules["article_bracket_footnote_re"]  # type: ignore[index]

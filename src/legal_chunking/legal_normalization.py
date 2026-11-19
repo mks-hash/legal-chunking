@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from functools import lru_cache
+from types import MappingProxyType
 
 from legal_chunking.errors import AssetConfigError
 from legal_chunking.manifest import load_asset_json
@@ -13,21 +15,29 @@ from legal_chunking.text_mapping import _TextView
 
 
 @lru_cache(maxsize=1)
-def numeric_script_rules() -> tuple[re.Pattern[str], dict[int, int], dict[int, int]]:
+def numeric_script_rules() -> tuple[re.Pattern[str], Mapping[int, int], Mapping[int, int]]:
     policy = load_asset_json("normalization_policy/generic.v1.json")
     try:
         pattern = re.compile(policy["script_suffix_regex"])
-        superscript = str.maketrans(policy["superscript_digits"] + "⁻", "0123456789-")
-        subscript = str.maketrans(policy["subscript_digits"], "0123456789")
+        superscript = MappingProxyType(
+            str.maketrans(policy["superscript_digits"] + "⁻", "0123456789-")
+        )
+        subscript = MappingProxyType(str.maketrans(policy["subscript_digits"], "0123456789"))
     except (KeyError, TypeError, ValueError, re.error) as exc:
         raise AssetConfigError("Invalid numeric script normalization policy") from exc
     return pattern, superscript, subscript
 
 
-def normalize_number_scripts(value: str) -> str:
-    suffix_pattern, superscript, subscript = numeric_script_rules()
+@lru_cache(maxsize=1)
+def _number_script_pattern() -> re.Pattern[str]:
+    suffix_pattern, _, _ = numeric_script_rules()
     # Keep one dot after either a plain base digit or an existing decimal dot.
-    pattern = re.compile(r"(?P<base>\d\.?)(?P<suffix>" + suffix_pattern.pattern + r")")
+    return re.compile(r"(?P<base>\d\.?)(?P<suffix>" + suffix_pattern.pattern + r")")
+
+
+def normalize_number_scripts(value: str) -> str:
+    _, superscript, subscript = numeric_script_rules()
+    pattern = _number_script_pattern()
     normalized = pattern.sub(
         lambda m: m.group("base").rstrip(".") + "." + m.group("suffix").translate(superscript),
         value or "",
@@ -62,7 +72,7 @@ def normalize_structural_numbering(text: str, *, profile: str) -> str:
 
 
 @lru_cache(maxsize=8)
-def repair_patterns(profile: str) -> dict[str, re.Pattern[str]]:
+def repair_patterns(profile: str) -> Mapping[str, re.Pattern[str]]:
     resolved = resolve_profile(profile)
     policy = resolved.normalization_policy
     templates = policy.get("repair_patterns", {})
@@ -86,7 +96,7 @@ def repair_patterns(profile: str) -> dict[str, re.Pattern[str]]:
             compiled[name] = re.compile(template)
         except re.error as exc:
             raise AssetConfigError(f"Invalid normalization pattern {name}") from exc
-    return compiled
+    return MappingProxyType(compiled)
 
 
 def approved_number(profile: str, kind: str, number: str) -> str:
