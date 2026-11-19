@@ -5,7 +5,7 @@ CLI `explain` runs the same engine. Tracing observes actual decisions; it does n
 run a second detector or reconstruct reasons from the final output. With identical
 input/config/runtime, enabling trace leaves document text, sections, chunks,
 metadata, offsets and IDs unchanged. Event order is deterministic runtime order,
-not a regrouping by stage. This is pre-alpha, not a frozen event serialization schema.
+not a regrouping by stage. This is alpha, not a frozen event serialization schema.
 
 ## Heading decisions
 

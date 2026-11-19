@@ -13,7 +13,7 @@ adapter and explicit layout/OCR support, not a retrieval or LLM framework.
 
 ## Status and scope
 
-Pre-alpha: package version `0.1.0`, Python 3.12+. The text core has no runtime
+Alpha: package version `0.2.0`, Python 3.12+. The text core has no runtime
 dependencies. PDF support uses the optional PyMuPDF extra; layout/OCR support uses the `ocr` extra
 and separately installed Tesseract traineddata.
 
