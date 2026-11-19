@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Callable
 from dataclasses import replace
 from functools import lru_cache
 
@@ -28,6 +29,30 @@ from .splitters import (
 )
 
 
+def _find_chunk_start_offset(
+    part: str,
+    *,
+    normalized_text: str,
+    search_start: int,
+    search_end: int,
+) -> int | None:
+    stripped = (part or "").strip()
+    if not stripped:
+        return None
+    first_line = stripped.splitlines()[0].strip()
+    anchor = first_line[:64] if first_line else stripped[:64]
+    if not anchor:
+        return None
+    found = normalized_text.find(anchor, search_start, search_end)
+    if found != -1:
+        return found
+    if len(anchor) > 24:
+        found = normalized_text.find(anchor[:24], search_start, search_end)
+        if found != -1:
+            return found
+    return None
+
+
 def build_chunks(
     sections: list[Section],
     *,
@@ -36,6 +61,8 @@ def build_chunks(
     chunk_policy: str,
     fallback: ChunkFallbackConfig,
     trace: TraceCollector | None = None,
+    normalized_text: str | None = None,
+    page_for_offset: Callable[[int], int | None] | None = None,
 ) -> list[Chunk]:
     """Build deterministic chunks from parsed sections and one resolved policy."""
     runtime = resolved_profile.runtime.chunk
@@ -58,12 +85,33 @@ def build_chunks(
             fallback=fallback,
             trace=trace,
         )
+        section_cursor = max(0, section.start_offset)
+        section_end = (
+            min(len(normalized_text), max(section_cursor, section.end_offset))
+            if normalized_text is not None
+            else 0
+        )
         for chunk_method, part, legal_unit_type, legal_unit_number, definition_term in parts:
+            page: int | None = None
+            if page_for_offset is not None and normalized_text:
+                found = _find_chunk_start_offset(
+                    part,
+                    normalized_text=normalized_text,
+                    search_start=section_cursor,
+                    search_end=section_end,
+                )
+                if found is not None:
+                    page = page_for_offset(found)
+                    section_cursor = min(section_end, found + 1)
+                else:
+                    fallback_offset = min(section_cursor, len(normalized_text) - 1)
+                    page = page_for_offset(fallback_offset)
             append_chunk(
                 chunks,
                 section=section,
                 text=part,
                 chunk_method=chunk_method,
+                page=page,
                 legal_unit_type=legal_unit_type,
                 legal_unit_number=legal_unit_number,
                 definition_term=definition_term,
@@ -92,6 +140,7 @@ def append_chunk(
     section: Section,
     text: str,
     chunk_method: str,
+    page: int | None = None,
     legal_unit_type: LegalUnitType | None,
     legal_unit_number: str | None,
     definition_term: str | None,
@@ -112,6 +161,7 @@ def append_chunk(
             text=normalized_text,
             order=order,
             chunk_method=chunk_method,
+            page=page,
             section_id=section.section_id,
             section_title=section.title,
             section_type=section.section_type or section.kind,
@@ -155,6 +205,7 @@ def select_sections(
         return nonempty
     by_id = {s.section_id: s for s in sections}
     bodies: dict[str, list[str]] = {}
+    end_offsets: dict[str, int] = {}
     selected: list[Section] = []
     for section in nonempty:
         owner = section if section.kind == primary_kind else None
@@ -176,10 +227,14 @@ def select_sections(
         else:
             if owner.section_id not in bodies:
                 bodies[owner.section_id] = []
+                end_offsets[owner.section_id] = owner.end_offset
                 selected.append(owner)
             bodies[owner.section_id].append(section.text)
+            end_offsets[owner.section_id] = max(end_offsets[owner.section_id], section.end_offset)
     return [
-        replace(s, text="\n\n".join(bodies[s.section_id])) if s.section_id in bodies else s
+        replace(s, text="\n\n".join(bodies[s.section_id]), end_offset=end_offsets[s.section_id])
+        if s.section_id in bodies
+        else s
         for s in selected
     ]
 
