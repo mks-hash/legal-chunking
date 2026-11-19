@@ -345,18 +345,30 @@ def _resolve_match_doc_family(
     return inherited_doc_family
 
 
-def _field_numbers(raw: str | None, profile: str) -> list[str | None]:
-    if raw is None:
-        return [None]
+@lru_cache(maxsize=8)
+def _field_number_syntax(
+    profile: str,
+) -> tuple[re.Pattern[str] | None, tuple[tuple[str, re.Pattern[str]], ...]]:
     syntax = resolve_profile(profile).numbering_markers.get("reference_syntax", {})
     separators = syntax.get("list_separators", []) + syntax.get("list_conjunctions", [])
     ranges = syntax.get("range_separators", [])
-    parts = re.split("|".join(re.escape(x) for x in separators), raw) if separators else [raw]
+    split_pattern = re.compile("|".join(re.escape(x) for x in separators)) if separators else None
+    range_patterns = tuple(
+        (separator, re.compile(r"\s*" + re.escape(separator) + r"\s*")) for separator in ranges
+    )
+    return split_pattern, range_patterns
+
+
+def _field_numbers(raw: str | None, profile: str) -> list[str | None]:
+    if raw is None:
+        return [None]
+    split_pattern, range_patterns = _field_number_syntax(profile)
+    parts = split_pattern.split(raw) if split_pattern is not None else [raw]
     values: list[str | None] = []
     for part in parts:
         normalized = part.strip()
-        for separator in ranges:
-            normalized = re.sub(r"\s*" + re.escape(separator) + r"\s*", separator, normalized)
+        for separator, pattern in range_patterns:
+            normalized = pattern.sub(separator, normalized)
         values.append(normalize_article_number(normalized))
     return values
 
