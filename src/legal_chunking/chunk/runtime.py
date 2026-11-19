@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import replace
+from functools import lru_cache
 
 from legal_chunking.errors import AssetConfigError
 from legal_chunking.hashing import _compute_chunk_identity_hash, compute_semantic_hash
@@ -183,6 +184,14 @@ def select_sections(
     ]
 
 
+@lru_cache(maxsize=16)
+def _compile_subdivision_pattern(regex: str) -> re.Pattern[str]:
+    try:
+        return re.compile(regex)
+    except re.error as exc:
+        raise AssetConfigError("Invalid article_subdivision_regex") from exc
+
+
 def split_section(
     section: Section,
     *,
@@ -214,12 +223,11 @@ def split_section(
 
     if chunk_policy == "statute":
         runtime = resolved_profile.runtime.chunk
-        pattern = None
-        if runtime.article_subdivision_regex:
-            try:
-                pattern = re.compile(runtime.article_subdivision_regex)
-            except re.error as exc:
-                raise AssetConfigError("Invalid article_subdivision_regex") from exc
+        pattern = (
+            _compile_subdivision_pattern(runtime.article_subdivision_regex)
+            if runtime.article_subdivision_regex
+            else None
+        )
         document_root_splitter = DOCUMENT_ROOT_SPLITTERS.get(runtime.document_root_splitter)
         if section.kind == "document_root" and document_root_splitter is not None:
             root_chunks = document_root_splitter(section.text, fallback, pattern=pattern)

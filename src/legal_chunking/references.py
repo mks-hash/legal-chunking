@@ -60,21 +60,27 @@ def _has_reference_context(text: str, *, start: int, end: int, profile: str) -> 
 
 
 @lru_cache(maxsize=8)
-def _adjacent_number_context(profile: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
+def _adjacent_number_context(profile: str) -> tuple[re.Pattern[str], re.Pattern[str], int, int]:
     resolved = resolve_profile(profile)
     aliases = get_numbering_aliases(
         profile=resolved.code, families=resolved.normalization_policy.get("context_families", [])
     )
     markers = "|".join(re.escape(a) for a in sorted(aliases, key=len, reverse=True))
     before = re.compile(r"(?<!\w)(?:" + markers + r")\s*$", re.IGNORECASE)
-    sources = "|".join(re.escape(a) for f in resolved.doc_families for a in f.aliases)
-    after = re.compile(r"^\s+(?:" + sources + r")(?!\w)" if sources else r"(?!)", re.IGNORECASE)
-    return before, after
+    source_aliases = [a for f in resolved.doc_families for a in f.aliases]
+    sources = "|".join(re.escape(a) for a in source_aliases)
+    after = re.compile(r"\s+(?:" + sources + r")(?!\w)" if sources else r"(?!)", re.IGNORECASE)
+    before_window = max((len(a) for a in aliases), default=0) + 32
+    after_window = max((len(a) for a in source_aliases), default=0) + 32
+    return before, after, before_window, after_window
 
 
 def _has_number_context(text: str, *, start: int, end: int, profile: str) -> bool:
-    before, after = _adjacent_number_context(resolve_profile(profile).code)
-    return before.search(text[:start]) is not None or after.match(text[end:]) is not None
+    before, after, before_window, after_window = _adjacent_number_context(profile)
+    return (
+        before.search(text, max(0, start - before_window), start) is not None
+        or after.match(text, end, min(len(text), end + after_window)) is not None
+    )
 
 
 def _normalize_contextual_reference_suffixes(text: _TextView, *, profile: str) -> _TextView:
@@ -128,16 +134,16 @@ def _drop_contextual_footnote_markers(text: _TextView, *, profile: str) -> _Text
 
 
 def _repair_legal_article_footnotes(text: _TextView, *, profile: str) -> _TextView:
-    if not repair_patterns(resolve_profile(profile).code):
+    rules = repair_patterns(profile)
+    if not rules:
         return text
-    rules = repair_patterns(resolve_profile(profile).code)
     return text.sub(rules["article_bracket_footnote_re"], r"\1")
 
 
 def _repair_split_legal_decimals(text: _TextView, *, profile: str) -> _TextView:
-    if not repair_patterns(resolve_profile(profile).code):
+    rules = repair_patterns(profile)
+    if not rules:
         return text
-    rules = repair_patterns(resolve_profile(profile).code)
     return text.sub(
         rules["legal_ref_split_decimal_re"],
         lambda match: f"{match.group(1)}.{match.group(2)}",
@@ -145,10 +151,10 @@ def _repair_split_legal_decimals(text: _TextView, *, profile: str) -> _TextView:
 
 
 def _repair_merged_article_decimals(text: _TextView, *, profile: str) -> _TextView:
-    if not repair_patterns(resolve_profile(profile).code):
+    rules = repair_patterns(profile)
+    if not rules:
         return text
 
-    rules = repair_patterns(resolve_profile(profile).code)
     normalized = text.sub(
         rules["legal_ref_merged_decimal_re"],
         lambda match: match.group(1) + approved_number(profile, "article", match.group("number")),
@@ -164,10 +170,10 @@ def _repair_merged_article_decimals(text: _TextView, *, profile: str) -> _TextVi
 
 
 def _repair_heading_merged_legal_decimals(text: _TextView, *, profile: str) -> _TextView:
-    if not repair_patterns(resolve_profile(profile).code):
+    rules = repair_patterns(profile)
+    if not rules:
         return text
 
-    rules = repair_patterns(resolve_profile(profile).code)
     return text.sub(
         rules["heading_merged_decimal_re"],
         lambda match: (
@@ -179,15 +185,16 @@ def _repair_heading_merged_legal_decimals(text: _TextView, *, profile: str) -> _
 
 
 def _normalize_legal_view(view: _TextView, *, profile: str) -> _TextView:
+    profile_code = resolve_profile(profile).code
     normalized = _normalize_extracted_view(view)
     if not normalized.text:
         return normalized
-    normalized = _repair_legal_article_footnotes(normalized, profile=profile)
-    normalized = _normalize_contextual_reference_suffixes(normalized, profile=profile)
-    normalized = _drop_contextual_footnote_markers(normalized, profile=profile)
-    normalized = _repair_split_legal_decimals(normalized, profile=profile)
-    normalized = _repair_merged_article_decimals(normalized, profile=profile)
-    normalized = _repair_heading_merged_legal_decimals(normalized, profile=profile)
+    normalized = _repair_legal_article_footnotes(normalized, profile=profile_code)
+    normalized = _normalize_contextual_reference_suffixes(normalized, profile=profile_code)
+    normalized = _drop_contextual_footnote_markers(normalized, profile=profile_code)
+    normalized = _repair_split_legal_decimals(normalized, profile=profile_code)
+    normalized = _repair_merged_article_decimals(normalized, profile=profile_code)
+    normalized = _repair_heading_merged_legal_decimals(normalized, profile=profile_code)
     return normalized.strip()
 
 
