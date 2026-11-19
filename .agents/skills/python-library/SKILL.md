@@ -6,7 +6,7 @@ description: Implement, test or package Python changes in Legal Chunking using i
 # Python library workflow
 
 Read root AGENTS.md and docs/development.md. pyproject.toml owns the Python minimum
-(3.14), package version, dependencies, Hatchling backend and Ruff settings.
+(3.12), package version, dependencies, Hatchling backend and Ruff settings.
 Use the installed project environment; do not import another repo's Docker,
 frontend, service, type-checker or MCP workflow.
 
