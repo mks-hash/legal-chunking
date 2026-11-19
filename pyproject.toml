@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "legal-chunking"
-version = "0.2.0"
+version = "0.3.0"
 description = "Deterministic, structure-aware parsing, chunking, and reference extraction for legal documents."
 readme = "README.md"
 license = "Apache-2.0"
